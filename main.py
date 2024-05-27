@@ -7,6 +7,7 @@ from discord import Intents, Client, app_commands
 from typing import Final
 import os
 from dotenv import load_dotenv
+import logging
 
 #*Custom modules
 import KTwelcome
@@ -32,6 +33,7 @@ async def on_message(message: discord.Message):
     if message.author != client.user:
         print(f">>> [{channel}]{author}: {content}")
 
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
 #*Autorole On-react
 @client.event
@@ -381,7 +383,7 @@ async def on_ready() -> None:
 
 #!MAIN
 def main() -> None:
-    client.run(token = TOKEN)
+    client.run(token = TOKEN, log_handler=handler)
     
 if __name__ == "__main__":
     main()
