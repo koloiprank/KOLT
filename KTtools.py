@@ -2,18 +2,14 @@ import json
 import discord
 
 async def load_config() -> dict[str, str]:
-    Path = "D:/CODE/Python/BOTS/KOLT/config.json"
-    
-    with open(Path, "r") as file:
+    with open("config.json", "r") as file:
         data = json.load(file)
     file.close()
     
     return data
 
 async def save_config(data : dict[str, str]) -> None:
-    Path = "D:/CODE/Python/BOTS/KOLT/config.json"
-    
-    with open(Path, "w") as file:
+    with open("config.json", "w") as file:
         json.dump(data, file)
     file.close()
 

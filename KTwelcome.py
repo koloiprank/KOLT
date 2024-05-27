@@ -45,14 +45,12 @@ async def select_welcome_channel(interaction : discord.Interaction) -> None:
     await interaction.response.send_message(embed = embed, view=ChannelView(interaction.guild))
     
 def set_welcome_channel(channelID : int) -> None: 
-    Path = "D:/CODE/Python/BOTS/KOLT/config.json"
-    
-    with open(Path, "r+") as file:
+    with open("/config.json", "r+") as file:
         adminvars = json.load(file)
         adminvars.update({"welcome_channel" : channelID})
     file.close()
     
-    with open(Path, "r+") as file:
+    with open("/config.json", "r+") as file:
         json.dump(adminvars, file)
     file.close()
  
@@ -169,41 +167,32 @@ class BothInput(discord.ui.Modal, title = "Set message and image link"):
         self.stop()
 
 def set_welcome_type(typ : str) -> None:
-    
-    Path = "D:/CODE/Python/BOTS/KOLT/config.json"
-    
-    with open(Path, "r+") as file:
+    with open("config.json", "r+") as file:
         adminvars = json.load(file)
         adminvars.update({"welcome_type" : typ})
     file.close()
     
-    with open(Path, "w") as file:
+    with open("config.json", "w") as file:
         json.dump(adminvars, file)
     file.close()
 
 def set_welcome_msg(msg : str) -> None:
-    
-    Path = "D:/CODE/Python/BOTS/KOLT/config.json"
-    
-    with open(Path, "r+") as file:
+    with open("config.json", "r+") as file:
         adminvars = json.load(file)
         adminvars.update({"welcome_message" : msg})
     file.close()
     
-    with open(Path, "w") as file:
+    with open("config.json", "w") as file:
         json.dump(adminvars, file)
     file.close()
     
 def set_welcome_image(url : str) -> None:
-    
-    Path = "D:/CODE/Python/BOTS/KOLT/config.json"
-    
-    with open(Path, "r+") as file:
+    with open("config.json", "r+") as file:
         adminvars = json.load(file)
         adminvars.update({"welcome_image" : url})
     file.close()
     
-    with open(Path, "w") as file:
+    with open("config.json", "w") as file:
         json.dump(adminvars, file)
     file.close()
 
