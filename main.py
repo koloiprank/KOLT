@@ -400,6 +400,20 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
         return False
+    elif await KTtools.has_permissions(interaction, ["administrator"]):
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} an administrator.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
+    elif member.top_role.position > client.get_guild(interaction.guild.id).me.top_role.position:
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} someone with a higher or equal role to me!",
+            color= discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
     elif interaction.user.top_role.position <= member.top_role.position:
         embed = discord.Embed(
             description= f"❌ You can't {mode} someone with a higher or equal role.",
@@ -408,6 +422,7 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
         await interaction.response.send_message(embed = embed, ephemeral=True)
         return False
     
+    print(member.roles)
     return True
 
 @tree.command(name = "warn", description= "Warns a user")
@@ -474,7 +489,26 @@ async def removeallwarns(interaction : discord.Interaction, member : discord.Mem
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-
+@tree.command(name = "mute", description= "Mutes a user for x minutes")
+async def mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "mute/unmute"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_mute(interaction, member, reason, duration)
+            else:
+                await KTmoderation.manual_mute(interaction, member, reason, duration)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
 
 
