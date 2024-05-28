@@ -31,3 +31,14 @@ async def has_permissions(interaction : discord.Interaction, permissions : list[
             ct+=1
     
     return ct == len(permissions)
+
+async def load_WMK() -> dict:
+    with open("warnmutekicks.json", "r") as file:
+        data = json.load(file)
+    file.close()
+    
+    return data
+async def save_WMK(data : dict) -> None:
+    with open("warnmutekicks.json", "w") as file:
+        json.dump(data, file)
+    file.close()
