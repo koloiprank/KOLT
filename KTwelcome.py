@@ -114,7 +114,13 @@ class MessageInput(discord.ui.Modal, title= "Set message"):
         await interaction.response.send_message(embed = embed)
         
         self.stop()
-  
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        await interaction.response.send_message("An error has occured.", ephemeral = True)
+        return await super().on_error(interaction, error)
+    async def on_timeout(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Timed out.", ephemeral = True)
+        return await super().on_timeout()
+
 class ImageInput(discord.ui.Modal, title = "Set image link"):
     image = discord.ui.TextInput(
         style = discord.TextStyle.short,
@@ -135,7 +141,13 @@ class ImageInput(discord.ui.Modal, title = "Set image link"):
         await interaction.response.send_message(embed = embed)
         
         self.stop()
-  
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        await interaction.response.send_message("An error has occured.", ephemeral = True)
+        return await super().on_error(interaction, error)
+    async def on_timeout(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Timed out.", ephemeral = True)
+        return await super().on_timeout()
+
 class BothInput(discord.ui.Modal, title = "Set message and image link"):
     text = discord.ui.TextInput(
         style = discord.TextStyle.short,
@@ -165,7 +177,13 @@ class BothInput(discord.ui.Modal, title = "Set message and image link"):
         await interaction.response.send_message(embed = embed)
         
         self.stop()
-
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        await interaction.response.send_message("An error has occured.", ephemeral = True)
+        return await super().on_error(interaction, error)
+    async def on_timeout(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Timed out.", ephemeral = True)
+        return await super().on_timeout()
+    
 def set_welcome_type(typ : str) -> None:
     with open("config.json", "r+") as file:
         adminvars = json.load(file)
