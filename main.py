@@ -13,6 +13,7 @@ import logging
 import KTwelcome
 import KTtools
 import KTautorole
+import KTmoderation
 
 #!TOKEN
 load_dotenv()
@@ -34,6 +35,8 @@ async def on_message(message: discord.Message):
         print(f">>> [{channel}]{author}: {content}")
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+
+
 
 #*Autorole On-react
 @client.event
@@ -71,6 +74,7 @@ async def on_raw_reaction_remove(payload):
             print(f"{user} has been removed the role {role} from reaction removal {reaction}")
  
             
+
 #*Welcome
 @client.event
 async def on_member_join(member: discord.Member):
@@ -218,6 +222,7 @@ async def testwelcome(interaction : discord.Interaction) -> None:
             color = discord.Color.red()
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
+
 
 
 #*Autorole 
@@ -371,6 +376,104 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
 
 
 
+#*Moderation
+async def is_member_punishable(interaction : discord.Interaction, member : discord.Member, mode : str) -> bool:
+    
+    if str(member.id) == str(interaction.user.id):
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} yourself.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
+    elif str(member.id) == str(interaction.guild.owner_id):
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} the server owner.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
+    elif str(member.id) == str(client.user.id):
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} me!!",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
+    elif interaction.user.top_role.position <= member.top_role.position:
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} someone with a higher or equal role.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
+    
+    return True
+
+@tree.command(name = "warn", description= "Warns a user")
+async def warn(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "warn"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_warn(interaction, member, reason)
+            else:
+                await KTmoderation.manual_warn(interaction, member, reason)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "removewarn", description= "Removes 1 warn from a user")
+async def removewarn(interaction : discord.Interaction, member : discord.Member) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "warn/unwarn"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_remove_warn(interaction, member,)
+            else:
+                await KTmoderation.manual_remove_warn(interaction, member)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "removeallwarns", description= "Removes all warns from a user")
+async def removeallwarns(interaction : discord.Interaction, member : discord.Member) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        
+        if await is_member_punishable(interaction, member, "warn/unwarn"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_remove_all_warns(interaction, member,)
+            else:
+                await KTmoderation.manual_remove_all_warns(interaction, member)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+
 
 
 
@@ -383,7 +486,7 @@ async def on_ready() -> None:
 
 #!MAIN
 def main() -> None:
-    client.run(token = TOKEN, log_handler=handler)
+    client.run(token = TOKEN, log_handler=handler, root_logger=True)
     
 if __name__ == "__main__":
     main()
