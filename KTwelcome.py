@@ -45,12 +45,12 @@ async def select_welcome_channel(interaction : discord.Interaction) -> None:
     await interaction.response.send_message(embed = embed, view=ChannelView(interaction.guild))
     
 def set_welcome_channel(channelID : int) -> None: 
-    with open("/config.json", "r+") as file:
+    with open("config.json", "r+") as file:
         adminvars = json.load(file)
         adminvars.update({"welcome_channel" : channelID})
     file.close()
     
-    with open("/config.json", "r+") as file:
+    with open("config.json", "r+") as file:
         json.dump(adminvars, file)
     file.close()
  

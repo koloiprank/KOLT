@@ -8,7 +8,6 @@ from KTtools import load_WMK, save_WMK, load_config, save_config  # noqa: F401
 import asyncio
 import time
 
-
 #Adders
 async def add_user(member : discord.Member) -> None:
     warns_mutes_kicks = await load_WMK()
@@ -33,11 +32,9 @@ async def remove_mute(member : discord.Member) -> None:
     warns_mutes_kicks[str(member.id)][1] -= 1
     await save_WMK(warns_mutes_kicks)  
 async def muteaction(member : discord.Member) -> None:
-    
     for channel in member.guild.channels:
         await channel.set_permissions(member, send_messages = False, send_messages_in_threads = False, send_voice_messages = False)
 async def unmuteaction(member : discord.Member) -> None:
-    
     for channel in member.guild.channels:
         await channel.set_permissions(member, send_messages = True, send_messages_in_threads = True, send_voice_messages = True)
 
@@ -57,21 +54,16 @@ async def manual_warn(interaction : discord.Interaction, member : discord.Member
     member_id = str(member.id)
     warn_count = warns_mutes_kicks[member_id][0]
     
-    
-    if warn_count < config["max_warns"]:
-        await add_warn(member)
-        
-        embed = discord.Embed(
-            description= f"{member.mention} has been warned for reason:\n\n **{reason}.**",
-            colour = discord.Color.dark_gray()
-        )
-        await interaction.response.send_message(embed = embed)
+    embed = discord.Embed(
+        description= f"{member.mention} has been warned for reason:\n\n **{reason}.**",
+        colour = discord.Color.dark_gray()
+    )
+    if warn_count == config["max_warns"]:
+        embed.set_footer(text = f"Reached max warns of {config['max_warns']}.\nNot adding to counter.")
     else:
-        embed = discord.Embed(
-            description= f"❌ {member.mention} has reached the maximum number of warns.",
-            colour = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed)
+        await add_warn(member)
+    
+    await interaction.response.send_message(embed = embed)
 async def manual_remove_warn(interaction : discord.Interaction, member : discord.Member) -> None:
     warns_mutes_kicks = await load_WMK()
     member_id = str(member.id)
@@ -81,7 +73,7 @@ async def manual_remove_warn(interaction : discord.Interaction, member : discord
         await remove_warn(member)
         
         embed = discord.Embed(
-            description= f"✅ {member.mention} has been removed a warned.",
+            description= f"✅ {member.mention} has been removed a warn.",
             colour = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
@@ -103,7 +95,6 @@ async def manual_remove_all_warns(interaction : discord.Interaction, member : di
         colour = discord.Color.green()
     )
     await interaction.response.send_message(embed = embed)
-
 
 async def manual_mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
     warns_mutes_kicks = await load_WMK()
@@ -129,8 +120,8 @@ async def manual_mute(interaction : discord.Interaction, member : discord.Member
     
     config["muted_users"].append(member_id)
     await save_config(config)
-    await muteaction(member)
     await interaction.response.send_message(embed = embed)
+    await muteaction(member)
     
     await asyncio.sleep(duration * 60)
     
@@ -138,13 +129,34 @@ async def manual_mute(interaction : discord.Interaction, member : discord.Member
         await unmuteaction(member)
         config["muted_users"].remove(member_id)
         await save_config(config)
+async def manual_unmute(interaction : discord.Interaction, member : discord.Member) -> None:
+    config = await load_config()
+    member_id = str(member.id)
+    
+    if member_id in config["muted_users"]:
+        config["muted_users"].remove(member_id)
+        await save_config(config)
+        
+        embed = discord.Embed(
+            description= f"✅ {member.mention} has been unmuted.",
+            colour = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+        await unmuteaction(member)
+    
+    else:
+        embed = discord.Embed(
+            description= f"❌ {member.mention} is not muted.",
+            colour = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 async def manual_remove_mute(interaction : discord.Interaction, member : discord.Member) -> None:
     warns_mutes_kicks = await load_WMK()
     member_id = str(member.id)
     mute_count = warns_mutes_kicks[member_id][1]
     
     if mute_count > 0:
-        await remove_warn(member)
+        await remove_mute(member)
         
         embed = discord.Embed(
             description= f"✅ {member.mention} has been removed a mute.",
@@ -157,4 +169,15 @@ async def manual_remove_mute(interaction : discord.Interaction, member : discord
             colour = discord.Color.red()
         )
         await interaction.response.send_message(embed = embed)
-#TODO: manual_remove_all_mutes(), manual_unmute()
+async def manual_remove_all_mutes(interaction : discord.Interaction, member : discord.Member) -> None:
+    warns_mutes_kicks = await load_WMK()
+    member_id = str(member.id)
+    
+    warns_mutes_kicks[member_id][1] = 0
+    await save_WMK(warns_mutes_kicks)
+    
+    embed = discord.Embed(
+        description= f"✅ {member.mention} has been cleared of all mutes.",
+        colour = discord.Color.green()
+    )
+    await interaction.response.send_message(embed = embed)

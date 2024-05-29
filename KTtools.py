@@ -7,7 +7,6 @@ async def load_config() -> dict[str, str]:
     file.close()
     
     return data
-
 async def save_config(data : dict[str, str]) -> None:
     with open("config.json", "w") as file:
         json.dump(data, file)
@@ -20,8 +19,19 @@ async def format_message(msg : str, member : discord.Member, guild : discord.Gui
         msg = msg.replace("@server", f"{guild.name}")
     
     return msg
+async def format_emoji(emoji : str) -> str:
+    if "<:" in emoji:
+        limits = ":"
+        inside_limit = False
+        for letter in emoji:
+            if letter is limits:
+                inside_limit = not inside_limit
+            
+            if not inside_limit:
+                emoji = emoji.replace(letter, "")
+    return emoji
 
-async def has_permissions(interaction : discord.Interaction, permissions : list[str]) -> bool:
+async def interactionuser_has_permissions(interaction : discord.Interaction, permissions : list[str]) -> bool:
     
     user_perms = [permission[0] for permission in interaction.user.guild_permissions if permission[1]]
     ct = 0
@@ -31,14 +41,25 @@ async def has_permissions(interaction : discord.Interaction, permissions : list[
             ct+=1
     
     return ct == len(permissions)
+async def user_has_permissions(member : discord.Member, permissions : list[str]) -> bool:
+    
+    user_perms = [permission[0] for permission in member.guild_permissions if permission[1]]
+    ct = 0
+    
+    for permission in permissions:
+        if permission in user_perms:
+            ct+=1
+    
+    return ct == len(permissions)
 
 async def load_WMK() -> dict:
-    with open("warnmutekicks.json", "r") as file:
+    with open("countautomod.json", "r") as file:
         data = json.load(file)
     file.close()
     
     return data
 async def save_WMK(data : dict) -> None:
-    with open("warnmutekicks.json", "w") as file:
+    with open("countautomod.json", "w") as file:
         json.dump(data, file)
     file.close()
+    

@@ -24,7 +24,7 @@ client : Client = Client(intents = intents)
 tree = app_commands.CommandTree(client)
 
 #!FUNC
-#*Chat+logging
+#*Chat logging
 @client.event
 async def on_message(message: discord.Message):
     author = message.author
@@ -34,44 +34,37 @@ async def on_message(message: discord.Message):
     if message.author != client.user:
         print(f">>> [{channel}]{author}: {content}")
 
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-
 
 
 #*Autorole On-react
 @client.event
-async def on_raw_reaction_add(payload):
-    
-    message = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    reaction = str(discord.utils.get(message.reactions))
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     user = payload.member
     config = await KTtools.load_config()
+    reaction = str(payload.emoji.name) 
     
     if reaction in config["react_roles"] and str(payload.channel_id) in config["autorole_channels"]:
-        
         role = config["react_roles"][reaction]
         
         if not user.bot:
-            
             await user.add_roles(discord.Object(id = role))
             print(f"{user} has been given the role {role} from reaction {reaction}")
 
 @client.event
-async def on_raw_reaction_remove(payload):
-   
-    message = await client.get_channel(payload.channel_id).fetch_message(payload.message_id)
-    reaction = str(discord.utils.get(message.reactions))
-    user = message.guild.get_member(payload.user_id)
-    config = await KTtools.load_config()
+async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    guild_id = payload.guild_id
+    guild = discord.utils.find(lambda g : g.id == guild_id, client.guilds)
     
+    user = guild.get_member(payload.user_id)
+    config = await KTtools.load_config()
+    reaction = str(payload.emoji.name) 
     
     if reaction in config["react_roles"] and str(payload.channel_id) in config["autorole_channels"]:
-        
         role = config["react_roles"][reaction]
         
         if not user.bot:
             await user.remove_roles(discord.Object(id = role))
-            print(f"{user} has been removed the role {role} from reaction removal {reaction}")
+            print(f"{user} has been cleared of the role {role} from reaction {reaction}")
  
             
 
@@ -81,51 +74,52 @@ async def on_member_join(member: discord.Member):
     config = await KTtools.load_config()
     channel = member.guild.get_channel(int(config["welcome_channel"]))
     
-    if config["welcome_type"] == "message":
-        
-        embed = discord.Embed(
-            title="**WELCOME!!**",
-            description= await KTwelcome.create_welcome_message(member, config),
-            color=discord.Color.dark_gold()
-        )
-        await channel.send(embed = embed)
-    
-    elif config["welcome_type"] == "image":
-        
-        if await KTwelcome.create_welcome_image(member, config) is not None:
-            
-            await channel.send(file = await KTwelcome.create_welcome_image(member, config))
-        
-        else:
+    if config["welcome_channel"]:
+        if config["welcome_type"] == "message":
             
             embed = discord.Embed(
-            description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
-            colour = discord.Color.red()
+                title="**WELCOME!!**",
+                description= await KTwelcome.create_welcome_message(member, config),
+                color=discord.Color.dark_gold()
             )
-           
             await channel.send(embed = embed)
-    
-    elif config["welcome_type"] == "both":
-        embed = discord.Embed(
-            title="**WELCOME!!**",
-            description= await KTwelcome.create_welcome_message(member, config),
-            color=discord.Color.dark_gold()
-        )
         
-        await channel.send(embed = embed)
-        
-        if await KTwelcome.create_welcome_image(member, config) is not None:
+        elif config["welcome_type"] == "image":
             
-            await channel.send(file = await KTwelcome.create_welcome_image(member, config))
-        
-        else:
+            if await KTwelcome.create_welcome_image(member, config) is not None:
+                
+                await channel.send(file = await KTwelcome.create_welcome_image(member, config))
             
+            else:
+                
+                embed = discord.Embed(
+                description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
+                colour = discord.Color.red()
+                )
+            
+                await channel.send(embed = embed)
+        
+        elif config["welcome_type"] == "both":
             embed = discord.Embed(
-            description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
-            colour = discord.Color.red()
+                title="**WELCOME!!**",
+                description= await KTwelcome.create_welcome_message(member, config),
+                color=discord.Color.dark_gold()
             )
-           
+            
             await channel.send(embed = embed)
+            
+            if await KTwelcome.create_welcome_image(member, config) is not None:
+                
+                await channel.send(file = await KTwelcome.create_welcome_image(member, config))
+            
+            else:
+                
+                embed = discord.Embed(
+                description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
+                colour = discord.Color.red()
+                )
+            
+                await channel.send(embed = embed)
     
     role_list = config["onjoin_roles"]
     for role in role_list:
@@ -135,7 +129,7 @@ async def on_member_join(member: discord.Member):
 async def set_welcome_channel(interaction : discord.Interaction) -> None:
     
     permissions = ["manage_channels", "manage_messages"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
         await KTwelcome.select_welcome_channel(interaction)
@@ -149,7 +143,7 @@ async def set_welcome_channel(interaction : discord.Interaction) -> None:
 @tree.command(name = "setwelcome", description= "Opens an embed with buttons to set your automatic welcome and goodbye message")
 async def set_welcome_message(interaction : discord.Interaction) -> None:
     permissions = ["manage_channels", "manage_messages"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
         await KTwelcome.select_welcome(interaction)
@@ -164,10 +158,21 @@ async def set_welcome_message(interaction : discord.Interaction) -> None:
 async def testwelcome(interaction : discord.Interaction) -> None:
     
     permissions = ["manage_channels", "manage_messages"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
         config = await KTtools.load_config()
+        
+        try: 
+            interaction.guild.get_channel(int(config["welcome_channel"]))
+        except Exception:
+            embed = discord.Embed(
+                description = "❌ Welcome channel not set.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+            return
+        
         if config["welcome_type"] == "message":
             
             embed = discord.Embed(
@@ -230,7 +235,7 @@ async def testwelcome(interaction : discord.Interaction) -> None:
 async def addautorolechannel(interaction : discord.Interaction) -> None:
     
     permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
         config = await KTtools.load_config()
@@ -263,7 +268,7 @@ async def addautorolechannel(interaction : discord.Interaction) -> None:
 async def removeautorolechannel(interaction : discord.Interaction) -> None:
     
     permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
         config = await KTtools.load_config()
@@ -298,7 +303,7 @@ async def removeautorolechannel(interaction : discord.Interaction) -> None:
 async def autoroleonjoin(interaction : discord.Interaction) -> None:
     
     permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
         await KTautorole.automatic_onjoin(interaction)
@@ -313,12 +318,12 @@ async def autoroleonjoin(interaction : discord.Interaction) -> None:
 async def autoroleonreact(interaction : discord.Interaction, emoji : str, role : str) -> None:
     
     permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     config = await KTtools.load_config()
     
     if has_perms:
-    
         messageID = interaction.channel.last_message_id
+        
         try:
             message = await interaction.channel.fetch_message(messageID)
         except Exception:
@@ -329,14 +334,11 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
             await interaction.response.send_message(embed = embed, ephemeral = True)
             return
 
-        
         if "<@" in str(role) and str(role).strip("<@&>") not in [str(member.id) for member in interaction.guild.members]:
             
             if str(interaction.channel_id) in config["autorole_channels"]:
                 try:
-                    
                     await message.add_reaction(emoji)
-                
                 except Exception:
                     
                     embed = discord.Embed(
@@ -345,12 +347,14 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
                         )
                     await interaction.response.send_message(embed = embed, ephemeral = True)
                     return
-                
-                config = await KTtools.load_config()
-                config["react_roles"][str(emoji)] = str(role).strip("<@&>")
-                await KTtools.save_config(config)
 
+                if await KTtools.format_emoji(str(emoji)) not in list(config["react_roles"].keys()):
+                    config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")
+                else:
+                    config["react_roles"].pop(await KTtools.format_emoji(str(emoji)))
+                    config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")    
                 
+                await KTtools.save_config(config)
                 await interaction.response.send_message("Done!", ephemeral = True)
             else:
                 embed = discord.Embed(
@@ -358,15 +362,11 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
                     color=discord.Color.red()
                     )
                 await interaction.response.send_message(embed = embed, ephemeral = True)
-                
         else:
-        
             embed = discord.Embed(
             description= "❌ Invalid role!",
             color=discord.Color.red())
-        
             await interaction.response.send_message(embed = embed, ephemeral = True)
-    
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -400,7 +400,14 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
         return False
-    elif await KTtools.has_permissions(interaction, ["administrator"]):
+    elif member.bot:
+        embed = discord.Embed(
+            description= f"❌ You can't {mode} a bot.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+        return False
+    elif await KTtools.user_has_permissions(member, ["administrator"]):
         embed = discord.Embed(
             description= f"❌ You can't {mode} an administrator.",
             color = discord.Color.red()
@@ -422,14 +429,13 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
         await interaction.response.send_message(embed = embed, ephemeral=True)
         return False
     
-    print(member.roles)
     return True
 
 @tree.command(name = "warn", description= "Warns a user")
 async def warn(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
     
     permissions = ["moderate_members", "kick_members", "ban_members"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
     if has_perms:
@@ -450,7 +456,7 @@ async def warn(interaction : discord.Interaction, member : discord.Member, reaso
 async def removewarn(interaction : discord.Interaction, member : discord.Member) -> None:
     
     permissions = ["moderate_members", "kick_members", "ban_members"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
     if has_perms:
@@ -471,7 +477,7 @@ async def removewarn(interaction : discord.Interaction, member : discord.Member)
 async def removeallwarns(interaction : discord.Interaction, member : discord.Member) -> None:
     
     permissions = ["moderate_members", "kick_members", "ban_members"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
     if has_perms:
@@ -493,7 +499,7 @@ async def removeallwarns(interaction : discord.Interaction, member : discord.Mem
 async def mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
     
     permissions = ["moderate_members", "kick_members", "ban_members"]
-    has_perms = await KTtools.has_permissions(interaction, permissions) or await KTtools.has_permissions(interaction, ["administrator"])
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
     if has_perms:
@@ -510,9 +516,77 @@ async def mute(interaction : discord.Interaction, member : discord.Member, reaso
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
+@tree.command(name = "unmute", description= "Unmutes a user")
+async def unmute(interaction : discord.Interaction, member : discord.Member) -> None:
+
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "mute/unmute"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_unmute(interaction, member)
+            else:
+                await KTmoderation.manual_unmute(interaction, member)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "removemute", description= "Removes 1 mute count from a user, does NOT unmute")
+async def removemute(interaction : discord.Interaction, member : discord.Member) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "mute/unmute"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_remove_mute(interaction, member)
+            else:
+                await KTmoderation.manual_remove_mute(interaction, member)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "removeallmutes", description= "Removes all mutes from a user, does NOT unmute")
+async def removeallmutes(interaction : discord.Interaction, member : discord.Member) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "mute/unmute"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_remove_all_mutes(interaction, member)
+            else:
+                await KTmoderation.manual_remove_all_mutes(interaction, member)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
+
+
+
+
+
 
 
 #!START
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 @client.event
 async def on_ready() -> None:
     await tree.sync()
