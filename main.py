@@ -348,12 +348,7 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
                     await interaction.response.send_message(embed = embed, ephemeral = True)
                     return
 
-                if await KTtools.format_emoji(str(emoji)) not in list(config["react_roles"].keys()):
-                    config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")
-                else:
-                    config["react_roles"].pop(await KTtools.format_emoji(str(emoji)))
-                    config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")    
-                
+                config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")
                 await KTtools.save_config(config)
                 await interaction.response.send_message("Done!", ephemeral = True)
             else:
