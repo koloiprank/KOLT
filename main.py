@@ -426,6 +426,7 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
     
     return True
 
+#Warns
 @tree.command(name = "warn", description= "Warns a user")
 async def warn(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
     
@@ -490,6 +491,7 @@ async def removeallwarns(interaction : discord.Interaction, member : discord.Mem
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Mutes
 @tree.command(name = "mute", description= "Mutes a user for x minutes")
 async def mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
     
@@ -574,6 +576,7 @@ async def removeallmutes(interaction : discord.Interaction, member : discord.Mem
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Kicks
 @tree.command(name = "kick", description= "Kicks a user")
 async def kick(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
 
@@ -652,6 +655,7 @@ async def removeallkicks(interaction : discord.Interaction, member : discord.Mem
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Ban
 @tree.command(name = "ban", description= "Bans a user")
 async def ban(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
 
@@ -674,10 +678,128 @@ async def ban(interaction : discord.Interaction, member : discord.Member, reason
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Automoderation
+@tree.command(name = "setmaxwarncount", description= "Sets the max warn count")
+async def setmaxwarncount(interaction : discord.Interaction,count : int) -> None:
+    
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        if count < 0:
+            embed = discord.Embed(
+                description= "❌ Count must be greater than 0.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
+        config = await KTtools.load_config()
+        config["max_warns"] = count
+        await KTtools.save_config(config)
+        
+        embed = discord.Embed(
+            description= f"✅ Set max warns to {count}.",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+    
+    
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
+@tree.command(name = "setmaxmutecount", description= "Sets the max mute count")
+async def setmaxmutecount(interaction : discord.Interaction,count : int) -> None:
+    
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        if count < 0:
+            embed = discord.Embed(
+                description= "❌ Count must be greater than 0.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
+        config = await KTtools.load_config()
+        config["max_mutes"] = count
+        await KTtools.save_config(config)
+        
+        embed = discord.Embed(
+            description= f"✅ Set max mutes to {count}.",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+    
+    
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
+@tree.command(name = "setmuteduration", description = "Sets automod mute duration in minutes")
+async def setmuteduration(interaction : discord.Interaction, duration : int) -> None:
+    
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        if duration < 0:
+            embed = discord.Embed(
+                description= "❌ Duration must be greater than 0.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
+        config = await KTtools.load_config()
+        config["mute_duration"] = duration
+        await KTtools.save_config(config)
+        
+        embed = discord.Embed(
+            description= f"✅ Set mute duration to {duration} minutes.",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
-
+@tree.command(name="setmaxkickcount", description= "Sets the max kick count")
+async def setmaxkickcount(interaction : discord.Interaction,count : int) -> None:
+    
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        if count < 0:
+            embed = discord.Embed(
+                description= "❌ Count must be greater than 0.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
+        config = await KTtools.load_config()
+        config["max_kicks"] = count
+        await KTtools.save_config(config)
+        
+        embed = discord.Embed(
+            description= f"✅ Set max kicks to {count}.",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+    
+    
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
 
 

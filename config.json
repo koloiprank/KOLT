@@ -1,1 +1,1 @@
-{"welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": [], "react_roles": {}, "autorole_channels": [], "muted_users": [], "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3, "max_bans": 3}
+{"welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": [], "react_roles": {}, "autorole_channels": [], "muted_users": [], "max_warns": 3, "max_mutes": 4, "mute_duration": 10, "max_kicks": 5}
