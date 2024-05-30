@@ -181,3 +181,21 @@ async def manual_remove_all_mutes(interaction : discord.Interaction, member : di
         colour = discord.Color.green()
     )
     await interaction.response.send_message(embed = embed)
+
+async def manual_kick(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
+    config = await load_config()
+    member_id = str(member.id)
+    warns_mutes_kicks = await load_WMK()
+    kick_count = warns_mutes_kicks[member_id][2]
+    
+    embed = discord.Embed(
+        description= f" {member.mention} has been kicked for reason:\n\n**{reason}**",
+        colour = discord.Color.dark_gray()
+    )
+    if kick_count == config["max_kicks"]:
+        embed.set_footer(text="User has reached max kick count. Kicking but not adding to counter.")
+    else:
+        await add_kick(member)
+    
+    await interaction.response.send_message(embed = embed)
+    await member.kick(reason = reason)

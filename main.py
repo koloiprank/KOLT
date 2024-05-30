@@ -429,7 +429,7 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
 @tree.command(name = "warn", description= "Warns a user")
 async def warn(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
     
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -450,7 +450,7 @@ async def warn(interaction : discord.Interaction, member : discord.Member, reaso
 @tree.command(name = "removewarn", description= "Removes 1 warn from a user")
 async def removewarn(interaction : discord.Interaction, member : discord.Member) -> None:
     
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -471,7 +471,7 @@ async def removewarn(interaction : discord.Interaction, member : discord.Member)
 @tree.command(name = "removeallwarns", description= "Removes all warns from a user")
 async def removeallwarns(interaction : discord.Interaction, member : discord.Member) -> None:
     
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -493,7 +493,7 @@ async def removeallwarns(interaction : discord.Interaction, member : discord.Mem
 @tree.command(name = "mute", description= "Mutes a user for x minutes")
 async def mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
     
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -514,7 +514,7 @@ async def mute(interaction : discord.Interaction, member : discord.Member, reaso
 @tree.command(name = "unmute", description= "Unmutes a user")
 async def unmute(interaction : discord.Interaction, member : discord.Member) -> None:
 
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -535,7 +535,7 @@ async def unmute(interaction : discord.Interaction, member : discord.Member) -> 
 @tree.command(name = "removemute", description= "Removes 1 mute count from a user, does NOT unmute")
 async def removemute(interaction : discord.Interaction, member : discord.Member) -> None:
     
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -556,7 +556,7 @@ async def removemute(interaction : discord.Interaction, member : discord.Member)
 @tree.command(name = "removeallmutes", description= "Removes all mutes from a user, does NOT unmute")
 async def removeallmutes(interaction : discord.Interaction, member : discord.Member) -> None:
     
-    permissions = ["moderate_members", "kick_members", "ban_members"]
+    permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     warns_mutes_kicks = await KTtools.load_WMK()
     
@@ -574,11 +574,83 @@ async def removeallmutes(interaction : discord.Interaction, member : discord.Mem
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
+@tree.command(name = "kick", description= "Kicks a user")
+async def kick(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
 
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "kick"):
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.manual_kick(interaction, member, reason) 
+            else:
+                await KTmoderation.manual_kick(interaction, member, reason)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
+@tree.command(name = "removekick", description= "Removes 1 kick count from a user, does NOT kick")
+async def removekick(interaction : discord.Interaction, member : discord.Member) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "kick"):
+            embed = discord.Embed(
+                description= f"✅ {member.mention} has been cleared of 1 kick count.",
+                color = discord.Color.green()
+            )
+            await interaction.response.send_message(embed = embed)
+            
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                await KTmoderation.remove_kick(member)
+            else:
+                await KTmoderation.remove_kick(member)
 
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
-
+@tree.command(name="removeallkicks", description= "Removes all kicks from a user, does NOT kick")
+async def removeallkicks(interaction : discord.Interaction, member : discord.Member) -> None:
+    
+    permissions = ["moderate_members", "kick_members", "ban_members"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+    warns_mutes_kicks = await KTtools.load_WMK()
+    
+    if has_perms:
+        if await is_member_punishable(interaction, member, "kick"):
+            embed = discord.Embed(
+                description= f"✅ {member.mention} has been cleared of all kicks.",
+                color = discord.Color.green()
+            )
+            await interaction.response.send_message(embed = embed)
+            
+            if str(member.id) not in warns_mutes_kicks:
+                await KTmoderation.add_user(member)
+                warns_mutes_kicks[str(member.id)][2] = 0
+            else:
+                warns_mutes_kicks[str(member.id)][2] = 0
+            
+            await KTtools.save_WMK(warns_mutes_kicks)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        await interaction.response.send_message(embed = embed, ephemeral=True)
 
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
