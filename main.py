@@ -8,6 +8,8 @@ from typing import Final
 import os
 from dotenv import load_dotenv
 import logging
+import time
+import asyncio
 
 #*Custom modules
 import KTwelcome
@@ -24,7 +26,10 @@ client : Client = Client(intents = intents)
 tree = app_commands.CommandTree(client)
 
 #!FUNC
-#*Chat logging
+#*Chat logging + Automod
+banned_words_per_server = KTtools.get_banned_words_per_server()
+print(banned_words_per_server)
+
 @client.event
 async def on_message(message: discord.Message):
     author = message.author
@@ -33,6 +38,65 @@ async def on_message(message: discord.Message):
     
     if message.author != client.user:
         print(f">>> [{channel}]{author}: {content}")
+        
+        if await KTtools.has_banned_word(message.content.lower(), banned_words_per_server[str(message.guild.id)]["bans"]):
+            wmk = await KTtools.load_WMK()
+            config = await KTtools.load_config()
+            member = message.author
+            max_warns = config["max_warns"]
+            max_mutes = config["max_mutes"]
+            max_kicks = config["max_kicks"]
+            mute_duration = config["mute_duration"]
+            
+            await message.delete()
+            
+            if str(member.id) not in wmk:
+                await KTmoderation.add_user(member)
+                wmk = await KTtools.load_WMK()
+            
+            if wmk[str(member.id)][0] < config["max_warns"]:
+                await KTmoderation.add_warn(member)
+                embed = discord.Embed(
+                description= f"{member.mention} has been warned for reason:\n\n **Using one/various banned word/s**",
+                colour = discord.Color.dark_gray()
+                )
+                embed.set_footer(text = f"Warnings left until mute: {max_warns - wmk[str(member.id)][0]-1}")
+                await channel.send(embed = embed)
+            elif wmk[str(member.id)][1] < config["max_mutes"]:
+                await KTmoderation.add_mute(member)
+                embed = discord.Embed(
+                description= f"{member.mention} has been muted for **{mute_duration}** minutes for reason:\n\n **Using one/various banned word/s**\n\nUnmuted <t:{int(time.time()) + (mute_duration * 60)}:R>",
+                colour = discord.Color.dark_gray()
+                )
+                embed.set_footer(text = f"Mutes left until kick: {max_mutes - wmk[str(member.id)][1]-1}")
+                await channel.send(embed = embed)
+                
+                config["muted_users"].append(str(member.id))
+                await KTtools.save_config(config)
+                await KTmoderation.muteaction(member)
+                
+                await asyncio.sleep(config["mute_duration"] * 60)
+
+                if str(member.id) in config["muted_users"]:
+                    await KTmoderation.unmuteaction(member)
+                    config["muted_users"].remove(str(member.id))
+                    await KTtools.save_config(config)
+            elif wmk[str(member.id)][2] < config["max_kicks"]:
+                await KTmoderation.add_kick(member)
+                embed = discord.Embed(
+                description= f"{member.mention} has been kicked for reason:\n\n **Using one/various banned word/s**",
+                colour = discord.Color.dark_gray()
+                )
+                embed.set_footer(text = f"Kicks left until ban: {max_kicks - wmk[str(member.id)][2]-1}")
+                await channel.send(embed = embed)
+                await member.kick(reason="Using one/various banned word/s after reaching max warns and max mutes")
+            else:
+                embed = discord.Embed(
+                description= f"{member.mention} has been banned for reason:\n\n **Using one/various banned word/s**",
+                colour = discord.Color.dark_gray()
+                )
+                await channel.send(embed = embed)
+                await member.ban(reason="Using one/various banned word/s after reaching max warns, max mutes and max kicks")
 
 
 
@@ -438,9 +502,9 @@ async def warn(interaction : discord.Interaction, member : discord.Member, reaso
         if await is_member_punishable(interaction, member, "warn"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_warn(interaction, member, reason)
+                await KTmoderation.warn(interaction, member, reason)
             else:
-                await KTmoderation.manual_warn(interaction, member, reason)
+                await KTmoderation.warn(interaction, member, reason)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -459,9 +523,9 @@ async def removewarn(interaction : discord.Interaction, member : discord.Member)
         if await is_member_punishable(interaction, member, "warn/unwarn"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_remove_warn(interaction, member,)
+                await KTmoderation.remove_warn(interaction, member,)
             else:
-                await KTmoderation.manual_remove_warn(interaction, member)
+                await KTmoderation.remove_warn(interaction, member)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -481,9 +545,9 @@ async def removeallwarns(interaction : discord.Interaction, member : discord.Mem
         if await is_member_punishable(interaction, member, "warn/unwarn"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_remove_all_warns(interaction, member,)
+                await KTmoderation.remove_all_warns(interaction, member,)
             else:
-                await KTmoderation.manual_remove_all_warns(interaction, member)
+                await KTmoderation.remove_all_warns(interaction, member)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -503,9 +567,9 @@ async def mute(interaction : discord.Interaction, member : discord.Member, reaso
         if await is_member_punishable(interaction, member, "mute/unmute"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_mute(interaction, member, reason, duration)
+                await KTmoderation.mute(interaction, member, reason, duration)
             else:
-                await KTmoderation.manual_mute(interaction, member, reason, duration)
+                await KTmoderation.mute(interaction, member, reason, duration)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -524,9 +588,9 @@ async def unmute(interaction : discord.Interaction, member : discord.Member) -> 
         if await is_member_punishable(interaction, member, "mute/unmute"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_unmute(interaction, member)
+                await KTmoderation.unmute(interaction, member)
             else:
-                await KTmoderation.manual_unmute(interaction, member)
+                await KTmoderation.unmute(interaction, member)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -545,9 +609,9 @@ async def removemute(interaction : discord.Interaction, member : discord.Member)
         if await is_member_punishable(interaction, member, "mute/unmute"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_remove_mute(interaction, member)
+                await KTmoderation.remove_mute(interaction, member)
             else:
-                await KTmoderation.manual_remove_mute(interaction, member)
+                await KTmoderation.remove_mute(interaction, member)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -566,9 +630,9 @@ async def removeallmutes(interaction : discord.Interaction, member : discord.Mem
         if await is_member_punishable(interaction, member, "mute/unmute"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_remove_all_mutes(interaction, member)
+                await KTmoderation.remove_all_mutes(interaction, member)
             else:
-                await KTmoderation.manual_remove_all_mutes(interaction, member)
+                await KTmoderation.remove_all_mutes(interaction, member)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -588,9 +652,9 @@ async def kick(interaction : discord.Interaction, member : discord.Member, reaso
         if await is_member_punishable(interaction, member, "kick"):
             if str(member.id) not in warns_mutes_kicks:
                 await KTmoderation.add_user(member)
-                await KTmoderation.manual_kick(interaction, member, reason) 
+                await KTmoderation.kick(interaction, member, reason) 
             else:
-                await KTmoderation.manual_kick(interaction, member, reason)
+                await KTmoderation.kick(interaction, member, reason)
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -792,14 +856,91 @@ async def setmaxkickcount(interaction : discord.Interaction,count : int) -> None
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
-    
-    
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
             color = discord.Color.red()
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "addbannedword", description= "Ban a word for the automod system to work on")
+async def addbannedword(interaction : discord.Interaction, word : str) -> None:
+    
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        server_id = str(interaction.guild_id)
+        word = word.lower()
+        
+        if not KTtools.find_file(f"{server_id}.json", ".\\banned_words\\"):
+            await KTtools.create_banned_words(server_id)
+        banned_words = await KTtools.load_banned_words(server_id)
+        
+        if word in banned_words["bans"]:
+            embed = discord.Embed(
+                description= f"❌ '**{word}**' is already banned.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        banned_words["bans"].append(word)
+        await KTtools.save_banned_words(banned_words, server_id)
+        global banned_words_per_server
+        banned_words_per_server = KTtools.get_banned_words_per_server()
+        
+        
+        embed = discord.Embed(
+            description= f"✅ Added banned word {word} to list.",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "removebannedword", description= "Remove a banned word")
+async def removebannedword(interaction : discord.Interaction, word : str) -> None:
+    
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        server_id = str(interaction.guild_id)
+        word = word.lower()
+        
+        if not KTtools.find_file(f"{server_id}.json", ".\\banned_words\\"):
+            await KTtools.create_banned_words(server_id)
+        banned_words = await KTtools.load_banned_words(server_id)
+        
+        if word not in banned_words["bans"]:
+            embed = discord.Embed(
+                description= f"❌ **'{word}'** is not banned.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        banned_words["bans"].remove(word)
+        await KTtools.save_banned_words(banned_words, server_id)
+        global banned_words_per_server
+        banned_words_per_server = KTtools.get_banned_words_per_server()
+        
+        
+        embed = discord.Embed(
+            description= f"✅ Removed banned word {word} from list.",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+    
+    else:
+        embed = discord.Embed(  
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed, ephemeral=True)
+
+
 
 
 
