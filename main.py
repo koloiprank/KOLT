@@ -26,6 +26,21 @@ client : Client = Client(intents = intents)
 tree = app_commands.CommandTree(client)
 
 #!FUNC
+#*On first join
+@client.event
+async def on_guild_join(guild):
+    general = discord.utils.find(lambda x: x.name == 'general',  guild.text_channels)
+    if general and general.permissions_for(guild.me).send_messages:
+        embed=discord.Embed(title="**--- Hello everyone!! ---**", description=f"""
+        Thanks for adding me to {guild.name}!
+        You can use the `/help` command to get started!
+        """, color=discord.Color.dark_purple())
+        await general.send(embed=embed)
+    
+    await KTtools.create_config(str(guild.id))
+    await KTtools.create_WMK(str(guild.id))
+    await KTtools.create_banned_words(str(guild.id))
+
 #*Chat logging + Automod
 banned_words_per_server = KTtools.get_banned_words_per_server()
 
@@ -39,9 +54,7 @@ async def on_message(message: discord.Message):
         print(f">>> [{channel}]{author}: {content}")
         
         if await KTtools.has_banned_word(message.content.lower(), banned_words_per_server[str(message.guild.id)]["bans"]) and not (message.author.bot or message.author == message.guild.owner or await KTtools.user_has_permissions(message.author, ["administrator"])):
-            wmk = await KTtools.load_WMK()
-            if not KTtools.find_file(f"{message.guild.id}.json", ".\\configs\\"):
-                await KTtools.create_config(str(message.guild.id))
+            wmk = await KTtools.load_WMK(str(message.guild.id))
             config = await KTtools.load_config(str(message.guild.id))
             
             member = message.author
@@ -54,7 +67,7 @@ async def on_message(message: discord.Message):
             
             if str(member.id) not in wmk:
                 await KTmoderation.add_user(member)
-                wmk = await KTtools.load_WMK()
+                wmk = await KTtools.load_WMK(str(message.guild.id))
             
             if wmk[str(member.id)][0] < config["max_warns"]:
                 await KTmoderation.add_warn(member)
@@ -106,8 +119,6 @@ async def on_message(message: discord.Message):
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     user = payload.member
-    if not KTtools.find_file(f"{payload.guild_id}.json", ".\\configs\\"):
-        await KTtools.create_config(str(payload.guild_id))
     config = await KTtools.load_config(str(payload.guild_id))
     reaction = str(payload.emoji.name) 
     
@@ -124,8 +135,6 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     guild = discord.utils.find(lambda g : g.id == guild_id, client.guilds)
     
     user = guild.get_member(payload.user_id)
-    if not KTtools.find_file(f"{payload.guild_id}.json", ".\\configs\\"):
-        await KTtools.create_config(str(payload.guild_id))
     config = await KTtools.load_config(str(payload.guild_id))
     reaction = str(payload.emoji.name) 
     
@@ -141,8 +150,6 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 #*Welcome
 @client.event
 async def on_member_join(member: discord.Member):
-    if not KTtools.find_file(f"{member.guild.id}.json", ".\\configs\\"):
-        await KTtools.create_config(str(member.guild.id))
     config = await KTtools.load_config(str(member.guild.id))
     channel = member.guild.get_channel(int(config["welcome_channel"]))
     
@@ -233,8 +240,6 @@ async def testwelcome(interaction : discord.Interaction) -> None:
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         
         try: 
@@ -315,8 +320,6 @@ async def addautorolechannel(interaction : discord.Interaction) -> None:
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         
         if str(interaction.channel.id) not in config["autorole_channels"]:
@@ -350,8 +353,6 @@ async def removeautorolechannel(interaction : discord.Interaction) -> None:
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
 
         if str(interaction.channel.id) in config["autorole_channels"]:
@@ -400,8 +401,6 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
     
     permissions = ["manage_channels", "manage_messages", "manage_roles"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
     config = await KTtools.load_config(str(interaction.guild.id))
     
     if has_perms:
@@ -515,7 +514,7 @@ async def warn(interaction : discord.Interaction, member : discord.Member, reaso
     
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "warn"):
@@ -536,7 +535,7 @@ async def removewarn(interaction : discord.Interaction, member : discord.Member)
     
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "warn/unwarn"):
@@ -557,7 +556,7 @@ async def removeallwarns(interaction : discord.Interaction, member : discord.Mem
     
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         
@@ -580,7 +579,7 @@ async def mute(interaction : discord.Interaction, member : discord.Member, reaso
     
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "mute/unmute"):
@@ -601,7 +600,7 @@ async def unmute(interaction : discord.Interaction, member : discord.Member) -> 
 
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "mute/unmute"):
@@ -622,7 +621,7 @@ async def removemute(interaction : discord.Interaction, member : discord.Member)
     
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "mute/unmute"):
@@ -643,7 +642,7 @@ async def removeallmutes(interaction : discord.Interaction, member : discord.Mem
     
     permissions = ["moderate_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "mute/unmute"):
@@ -665,7 +664,7 @@ async def kick(interaction : discord.Interaction, member : discord.Member, reaso
 
     permissions = ["kick_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "kick"):
@@ -686,7 +685,7 @@ async def removekick(interaction : discord.Interaction, member : discord.Member)
     
     permissions = ["kick_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "kick"):
@@ -714,7 +713,7 @@ async def removeallkicks(interaction : discord.Interaction, member : discord.Mem
     
     permissions = ["kick_members"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK()
+    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
     
     if has_perms:
         if await is_member_punishable(interaction, member, "kick"):
@@ -730,7 +729,7 @@ async def removeallkicks(interaction : discord.Interaction, member : discord.Mem
             else:
                 warns_mutes_kicks[str(member.id)][2] = 0
             
-            await KTtools.save_WMK(warns_mutes_kicks)
+            await KTtools.save_WMK(warns_mutes_kicks, str(interaction.guild_id))
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -775,8 +774,6 @@ async def setmaxwarncount(interaction : discord.Interaction,count : int) -> None
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["max_warns"] = count
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -808,8 +805,6 @@ async def setmaxmutecount(interaction : discord.Interaction,count : int) -> None
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["max_mutes"] = count
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -841,8 +836,6 @@ async def setmuteduration(interaction : discord.Interaction, duration : int) -> 
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["mute_duration"] = duration
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -872,8 +865,6 @@ async def setmaxkickcount(interaction : discord.Interaction,count : int) -> None
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["max_kicks"] = count
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -899,9 +890,6 @@ async def addbannedword(interaction : discord.Interaction, word : str) -> None:
     if has_perms:
         server_id = str(interaction.guild_id)
         word = word.lower()
-        
-        if not KTtools.find_file(f"{server_id}.json", ".\\banned_words\\"):
-            await KTtools.create_banned_words(server_id)
         banned_words = await KTtools.load_banned_words(server_id)
         
         if word in banned_words["bans"]:
@@ -937,9 +925,6 @@ async def removebannedword(interaction : discord.Interaction, word : str) -> Non
     if has_perms:
         server_id = str(interaction.guild_id)
         word = word.lower()
-        
-        if not KTtools.find_file(f"{server_id}.json", ".\\banned_words\\"):
-            await KTtools.create_banned_words(server_id)
         banned_words = await KTtools.load_banned_words(server_id)
         
         if word not in banned_words["bans"]:

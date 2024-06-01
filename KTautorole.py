@@ -25,7 +25,7 @@ class RolesDropdown(discord.ui.Select):
         
         selected_roles = self.values
         
-        await set_automatic_roles(selected_roles)
+        await set_automatic_roles(selected_roles, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= "Roles selected: " + ", ".join(interaction.user.guild.get_role(int(role)).name for role in selected_roles),
@@ -39,7 +39,7 @@ class RolesView(discord.ui.View):
         super().__init__()
         self.add_item(RolesDropdown(guild))
         
-async def set_automatic_roles(roles : list) -> None:
+async def set_automatic_roles(roles : list, server_id = None) -> None:
     config = await KTtools.load_config()
     config["onjoin_roles"] = list(roles)
     

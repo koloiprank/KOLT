@@ -4,33 +4,33 @@ import discord
 
 
 #*Tools
-from KTtools import load_WMK, save_WMK, load_config, save_config, find_file, create_config  # noqa: F401
+from KTtools import load_WMK, save_WMK, load_config, save_config, find_file, create_config, create_WMK  # noqa: F401
 import asyncio
 import time
 
 #List adders + unofficial actions
 async def add_user(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)] = [0,0,0]
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
 
 async def add_warn(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)][0] += 1
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
 async def remove_warnlist(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)][0] -= 1
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
     
 async def add_mute(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)][1] += 1
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
 async def remove_mutelist(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)][1] -= 1
-    await save_WMK(warns_mutes_kicks)  
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))  
 async def muteaction(member : discord.Member) -> None:
     for channel in member.guild.channels:
         await channel.set_permissions(member, send_messages = False, send_messages_in_threads = False, send_voice_messages = False)
@@ -39,19 +39,17 @@ async def unmuteaction(member : discord.Member) -> None:
         await channel.set_permissions(member, send_messages = True, send_messages_in_threads = True, send_voice_messages = True)
 
 async def add_kick(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)][2] += 1
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
 async def remove_kick(member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(member.guild.id))
     warns_mutes_kicks[str(member.id)][2] -= 1
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
     
 #Moderation commands
 async def warn(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
-    warns_mutes_kicks = await load_WMK()
-    if not find_file("configs", str(member.id) + ".json"):
-        await create_config(str(member.id))
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     config = await load_config(str(interaction.guild.id))
     member_id = str(member.id)
     warn_count = warns_mutes_kicks[member_id][0]
@@ -67,7 +65,7 @@ async def warn(interaction : discord.Interaction, member : discord.Member, reaso
     
     await interaction.response.send_message(embed = embed)
 async def remove_warn(interaction : discord.Interaction, member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     member_id = str(member.id)
     warn_count = warns_mutes_kicks[member_id][0]
     
@@ -86,11 +84,11 @@ async def remove_warn(interaction : discord.Interaction, member : discord.Member
         )
         await interaction.response.send_message(embed = embed)
 async def remove_all_warns(interaction : discord.Interaction, member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     member_id = str(member.id)
     
     warns_mutes_kicks[member_id][0] = 0
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
     
     embed = discord.Embed(
         description= f"✅ {member.mention} has been cleared of all warns.",
@@ -99,9 +97,7 @@ async def remove_all_warns(interaction : discord.Interaction, member : discord.M
     await interaction.response.send_message(embed = embed)
 
 async def mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
-    warns_mutes_kicks = await load_WMK()
-    if not find_file("configs", str(member.id) + ".json"):
-        await create_config(str(member.id))
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     config = await load_config(str(interaction.guild.id))
     member_id = str(member.id)
     mute_count = warns_mutes_kicks[member_id][1]
@@ -134,8 +130,6 @@ async def mute(interaction : discord.Interaction, member : discord.Member, reaso
         config["muted_users"].remove(member_id)
         await save_config(config, str(interaction.guild.id))
 async def unmute(interaction : discord.Interaction, member : discord.Member) -> None:
-    if not find_file("configs", str(member.id) + ".json"):
-        await create_config(str(member.id))
     config = await load_config(str(interaction.guild.id))
     member_id = str(member.id)
     
@@ -157,7 +151,7 @@ async def unmute(interaction : discord.Interaction, member : discord.Member) -> 
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 async def remove_mute(interaction : discord.Interaction, member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     member_id = str(member.id)
     mute_count = warns_mutes_kicks[member_id][1]
     
@@ -176,11 +170,11 @@ async def remove_mute(interaction : discord.Interaction, member : discord.Member
         )
         await interaction.response.send_message(embed = embed)
 async def remove_all_mutes(interaction : discord.Interaction, member : discord.Member) -> None:
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     member_id = str(member.id)
     
     warns_mutes_kicks[member_id][1] = 0
-    await save_WMK(warns_mutes_kicks)
+    await save_WMK(warns_mutes_kicks, str(member.guild.id))
     
     embed = discord.Embed(
         description= f"✅ {member.mention} has been cleared of all mutes.",
@@ -189,11 +183,9 @@ async def remove_all_mutes(interaction : discord.Interaction, member : discord.M
     await interaction.response.send_message(embed = embed)
 
 async def kick(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
-    if not find_file("configs", str(member.id) + ".json"):
-        await create_config(str(member.id))
     config = await load_config(str(interaction.guild.id))
     member_id = str(member.id)
-    warns_mutes_kicks = await load_WMK()
+    warns_mutes_kicks = await load_WMK(str(interaction.guild.id))
     kick_count = warns_mutes_kicks[member_id][2]
     
     embed = discord.Embed(

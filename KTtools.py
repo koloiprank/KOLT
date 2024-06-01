@@ -45,14 +45,19 @@ async def save_config(data : dict[str, str], server_id : str) -> None:
         json.dump(data, file)
     file.close()
 
-async def load_WMK() -> dict:
-    with open("countautomod.json", "r") as file:
+async def create_WMK(server_id : str) -> None:
+    with open (f".\\automod_counters\{server_id}.json", "x") as file:
+        json.dump({"USER_TEMPLATE": [0, 0, 0]},file)
+    file.close()
+    return None
+async def load_WMK(server_id : str) -> dict:
+    with open(f".\\automod_counters\\{server_id}.json", "r") as file:
         data = json.load(file)
     file.close()
     
     return data
-async def save_WMK(data : dict) -> None:
-    with open("countautomod.json", "w") as file:
+async def save_WMK(data : dict, server_id : str) -> None:
+    with open(f".\\automod_counters\\{server_id}.json", "w") as file:
         json.dump(data, file)
     file.close()
 
