@@ -40,7 +40,7 @@ async def unmuteaction(member : discord.Member) -> None:
 
 async def add_kick(member : discord.Member) -> None:
     warns_mutes_kicks = await load_WMK()
-    warns_mutes_kicks[str(member.id)] = [0,0,1]
+    warns_mutes_kicks[str(member.id)][2] += 1
     await save_WMK(warns_mutes_kicks)
 async def remove_kick(member : discord.Member) -> None:
     warns_mutes_kicks = await load_WMK()

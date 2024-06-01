@@ -20,10 +20,13 @@ def get_banned_words_per_server() -> dict[str: dict[str : str]]:
     
     return to_return
 async def has_banned_word(message : str, banned_words : list) -> bool:
-    for split in " \"',;.:-_/\\()[]{}<>+-*'¡¿!?|@·#$~%€&¬=^`¨§¶¨":
-        for word in message.split(split):	
-            if word in banned_words:
-                return True
+
+    for strip in " \"',;.:-_/\\()[]{}<>+-*'¡¿!?|@·#$~%€&¬=^`µ§¶µ":
+        message = message.replace(strip, "")
+
+    for word in banned_words:
+        if word in message.replace(strip, ""):
+            return True
     return False
     
 async def load_config() -> dict[str, str]:
@@ -103,4 +106,3 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
     
     return ct == len(permissions)
 
-print(get_banned_words_per_server())

@@ -888,12 +888,12 @@ async def addbannedword(interaction : discord.Interaction, word : str) -> None:
         global banned_words_per_server
         banned_words_per_server = KTtools.get_banned_words_per_server()
         
-        
         embed = discord.Embed(
             description= f"✅ Added banned word {word} to list.",
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
+        
     else:
         embed = discord.Embed(
             description= "❌ You don't have permission to use this command.",
@@ -925,7 +925,6 @@ async def removebannedword(interaction : discord.Interaction, word : str) -> Non
         await KTtools.save_banned_words(banned_words, server_id)
         global banned_words_per_server
         banned_words_per_server = KTtools.get_banned_words_per_server()
-        
         
         embed = discord.Embed(
             description= f"✅ Removed banned word {word} from list.",
