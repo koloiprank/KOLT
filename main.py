@@ -28,7 +28,6 @@ tree = app_commands.CommandTree(client)
 #!FUNC
 #*Chat logging + Automod
 banned_words_per_server = KTtools.get_banned_words_per_server()
-print(banned_words_per_server)
 
 @client.event
 async def on_message(message: discord.Message):
@@ -39,9 +38,12 @@ async def on_message(message: discord.Message):
     if message.author != client.user:
         print(f">>> [{channel}]{author}: {content}")
         
-        if await KTtools.has_banned_word(message.content.lower(), banned_words_per_server[str(message.guild.id)]["bans"]):
+        if await KTtools.has_banned_word(message.content.lower(), banned_words_per_server[str(message.guild.id)]["bans"]) and not (message.author.bot or message.author == message.guild.owner or await KTtools.user_has_permissions(message.author, ["administrator"])):
             wmk = await KTtools.load_WMK()
-            config = await KTtools.load_config()
+            if not KTtools.find_file(f"{message.guild.id}.json", ".\\configs\\"):
+                await KTtools.create_config(str(message.guild.id))
+            config = await KTtools.load_config(str(message.guild.id))
+            
             member = message.author
             max_warns = config["max_warns"]
             max_mutes = config["max_mutes"]
@@ -72,7 +74,7 @@ async def on_message(message: discord.Message):
                 await channel.send(embed = embed)
                 
                 config["muted_users"].append(str(member.id))
-                await KTtools.save_config(config)
+                await KTtools.save_config(config, str(message.guild.id))
                 await KTmoderation.muteaction(member)
                 
                 await asyncio.sleep(config["mute_duration"] * 60)
@@ -80,7 +82,7 @@ async def on_message(message: discord.Message):
                 if str(member.id) in config["muted_users"]:
                     await KTmoderation.unmuteaction(member)
                     config["muted_users"].remove(str(member.id))
-                    await KTtools.save_config(config)
+                    await KTtools.save_config(config, str(message.guild.id))
             elif wmk[str(member.id)][2] < config["max_kicks"]:
                 await KTmoderation.add_kick(member)
                 embed = discord.Embed(
@@ -104,7 +106,9 @@ async def on_message(message: discord.Message):
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     user = payload.member
-    config = await KTtools.load_config()
+    if not KTtools.find_file(f"{payload.guild_id}.json", ".\\configs\\"):
+        await KTtools.create_config(str(payload.guild_id))
+    config = await KTtools.load_config(str(payload.guild_id))
     reaction = str(payload.emoji.name) 
     
     if reaction in config["react_roles"] and str(payload.channel_id) in config["autorole_channels"]:
@@ -120,7 +124,9 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     guild = discord.utils.find(lambda g : g.id == guild_id, client.guilds)
     
     user = guild.get_member(payload.user_id)
-    config = await KTtools.load_config()
+    if not KTtools.find_file(f"{payload.guild_id}.json", ".\\configs\\"):
+        await KTtools.create_config(str(payload.guild_id))
+    config = await KTtools.load_config(str(payload.guild_id))
     reaction = str(payload.emoji.name) 
     
     if reaction in config["react_roles"] and str(payload.channel_id) in config["autorole_channels"]:
@@ -135,7 +141,9 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 #*Welcome
 @client.event
 async def on_member_join(member: discord.Member):
-    config = await KTtools.load_config()
+    if not KTtools.find_file(f"{member.guild.id}.json", ".\\configs\\"):
+        await KTtools.create_config(str(member.guild.id))
+    config = await KTtools.load_config(str(member.guild.id))
     channel = member.guild.get_channel(int(config["welcome_channel"]))
     
     if config["welcome_channel"]:
@@ -225,7 +233,9 @@ async def testwelcome(interaction : discord.Interaction) -> None:
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
         
         try: 
             interaction.guild.get_channel(int(config["welcome_channel"]))
@@ -245,13 +255,15 @@ async def testwelcome(interaction : discord.Interaction) -> None:
                 color=discord.Color.dark_gold()
             )
             
-            await interaction.response.send_message(embed = embed)
-        
+            await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
+            await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
+
         elif config["welcome_type"] == "image":
             
             if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
                 
-                await interaction.channel.send(file = await KTwelcome.create_welcome_image(interaction.user, config))
+                await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
+                await interaction.guild.get_channel(int(config["welcome_channel"])).send(file = await KTwelcome.create_welcome_image(interaction.user, config))
             
             else:
                 
@@ -271,7 +283,8 @@ async def testwelcome(interaction : discord.Interaction) -> None:
                 color=discord.Color.dark_gold()
             )
             
-            await interaction.response.send_message(embed = embed)
+            await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
+            await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
             
             if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
                 
@@ -302,11 +315,13 @@ async def addautorolechannel(interaction : discord.Interaction) -> None:
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
         
         if str(interaction.channel.id) not in config["autorole_channels"]:
             config["autorole_channels"].append(str(interaction.channel.id))
-            await KTtools.save_config(config)
+            await KTtools.save_config(config, str(interaction.guild.id))
 
             embed = discord.Embed(
                 title = "Channel added",
@@ -335,12 +350,14 @@ async def removeautorolechannel(interaction : discord.Interaction) -> None:
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
     
     if has_perms:
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
 
         if str(interaction.channel.id) in config["autorole_channels"]:
             
             config["autorole_channels"].remove(str(interaction.channel.id))
-            await KTtools.save_config(config)
+            await KTtools.save_config(config, str(interaction.guild.id))
             
             embed = discord.Embed(
                 title = "Channel removed",
@@ -383,7 +400,9 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
     
     permissions = ["manage_channels", "manage_messages", "manage_roles"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    config = await KTtools.load_config()
+    if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+    config = await KTtools.load_config(str(interaction.guild.id))
     
     if has_perms:
         messageID = interaction.channel.last_message_id
@@ -413,7 +432,7 @@ async def autoroleonreact(interaction : discord.Interaction, emoji : str, role :
                     return
 
                 config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")
-                await KTtools.save_config(config)
+                await KTtools.save_config(config, str(interaction.guild.id))
                 await interaction.response.send_message("Done!", ephemeral = True)
             else:
                 embed = discord.Embed(
@@ -756,9 +775,11 @@ async def setmaxwarncount(interaction : discord.Interaction,count : int) -> None
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
         config["max_warns"] = count
-        await KTtools.save_config(config)
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= f"✅ Set max warns to {count}.",
@@ -787,9 +808,11 @@ async def setmaxmutecount(interaction : discord.Interaction,count : int) -> None
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
         config["max_mutes"] = count
-        await KTtools.save_config(config)
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= f"✅ Set max mutes to {count}.",
@@ -818,9 +841,11 @@ async def setmuteduration(interaction : discord.Interaction, duration : int) -> 
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
         config["mute_duration"] = duration
-        await KTtools.save_config(config)
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= f"✅ Set mute duration to {duration} minutes.",
@@ -847,9 +872,11 @@ async def setmaxkickcount(interaction : discord.Interaction,count : int) -> None
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config()
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
         config["max_kicks"] = count
-        await KTtools.save_config(config)
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= f"✅ Set max kicks to {count}.",

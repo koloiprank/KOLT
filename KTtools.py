@@ -28,15 +28,20 @@ async def has_banned_word(message : str, banned_words : list) -> bool:
         if word in message.replace(strip, ""):
             return True
     return False
-    
-async def load_config() -> dict[str, str]:
-    with open("config.json", "r") as file:
+
+async def create_config(server_id : str):
+    with open (f".\\configs\{server_id}.json", "x") as file:
+        json.dump({"welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": [], "react_roles": {}, "autorole_channels": [], "muted_users": [], "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}, file)
+    file.close()
+    return None
+async def load_config(server_id : str) -> dict[str, str]:
+    with open (f".\\configs\{server_id}.json", "r") as file:
         data = json.load(file)
     file.close()
     
     return data
-async def save_config(data : dict[str, str]) -> None:
-    with open("config.json", "w") as file:
+async def save_config(data : dict[str, str], server_id : str) -> None:
+    with open (f".\\configs\{server_id}.json", "w") as file:
         json.dump(data, file)
     file.close()
 

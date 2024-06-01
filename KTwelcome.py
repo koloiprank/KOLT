@@ -2,9 +2,6 @@
 #*Discord
 import discord
 
-#*OS
-import json
-
 #*Tools
 import KTtools
 from easy_pil import Editor, load_image_async, Font
@@ -24,7 +21,11 @@ class ChannelDropdown(discord.ui.Select):
         
         channel_ID = self.values[0]
         
-        set_welcome_channel(channel_ID)
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_channel"] = str(channel_ID)
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(colour = discord.Colour.dark_purple(), description = f"Selected welcome channel: **#{interaction.guild.get_channel(int(channel_ID))}**")
         await interaction.response.send_message(embed = embed)
@@ -43,16 +44,7 @@ async def select_welcome_channel(interaction : discord.Interaction) -> None:
     )
     
     await interaction.response.send_message(embed = embed, view=ChannelView(interaction.guild))
-    
-def set_welcome_channel(channelID : int) -> None: 
-    with open("config.json", "r+") as file:
-        adminvars = json.load(file)
-        adminvars.update({"welcome_channel" : channelID})
-    file.close()
-    
-    with open("config.json", "r+") as file:
-        json.dump(adminvars, file)
-    file.close()
+
  
 
 
@@ -76,7 +68,11 @@ class ButtonImgMsg(discord.ui.View):
         image_modal = ImageInput()
         await interaction.response.send_modal(image_modal)
         
-        set_welcome_type("image")
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_type"] = "image"
+        await KTtools.save_config(config, str(interaction.guild.id))
         
     @discord.ui.button(label = "Message", style = discord.ButtonStyle.green)
     async def msg_select(self, interaction : discord.Interaction, button : discord.ui.Button) -> None:
@@ -84,7 +80,11 @@ class ButtonImgMsg(discord.ui.View):
         message_modal = MessageInput()
         await interaction.response.send_modal(message_modal)
         
-        set_welcome_type("message")
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_type"] = "message"
+        await KTtools.save_config(config, str(interaction.guild.id))
 
     @discord.ui.button(label = "Both", style = discord.ButtonStyle.green)
     async def both_select(self, interaction : discord.Interaction, button : discord.ui.Button) -> None:
@@ -92,7 +92,11 @@ class ButtonImgMsg(discord.ui.View):
         message_modal = BothInput()
         await interaction.response.send_modal(message_modal)
         
-        set_welcome_type("both")
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_type"] = "both"
+        await KTtools.save_config(config, str(interaction.guild.id))
 
 class MessageInput(discord.ui.Modal, title= "Set message"):
     message = discord.ui.TextInput(
@@ -104,7 +108,11 @@ class MessageInput(discord.ui.Modal, title= "Set message"):
     
     async def on_submit(self, interaction: discord.Interaction) -> None:
         message = self.message.value
-        set_welcome_msg(message)
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_message"] = message
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= "✅ Message set succesfully.",
@@ -131,7 +139,11 @@ class ImageInput(discord.ui.Modal, title = "Set image link"):
     
     async def on_submit(self, interaction: discord.Interaction) -> None:
         imagelink = self.image.value
-        set_welcome_image(imagelink)
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_image"] = imagelink
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         embed = discord.Embed(
             description= "✅ Image link set succesfully.",
@@ -164,9 +176,18 @@ class BothInput(discord.ui.Modal, title = "Set message and image link"):
     
     async def on_submit(self, interaction: discord.Interaction) -> None:
         imagelink = self.image.value
-        set_welcome_image(imagelink)
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_image"] = imagelink
+        await KTtools.save_config(config, str(interaction.guild.id))
+        
         message = self.text.value
-        set_welcome_msg(message)
+        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
+            await KTtools.create_config(str(interaction.guild.id))
+        config = await KTtools.load_config(str(interaction.guild.id))
+        config["welcome_message"] = message
+        await KTtools.save_config(config, str(interaction.guild.id))
         
         
         embed = discord.Embed(
@@ -184,35 +205,7 @@ class BothInput(discord.ui.Modal, title = "Set message and image link"):
         await interaction.response.send_message("Timed out.", ephemeral = True)
         return await super().on_timeout()
     
-def set_welcome_type(typ : str) -> None:
-    with open("config.json", "r+") as file:
-        adminvars = json.load(file)
-        adminvars.update({"welcome_type" : typ})
-    file.close()
-    
-    with open("config.json", "w") as file:
-        json.dump(adminvars, file)
-    file.close()
 
-def set_welcome_msg(msg : str) -> None:
-    with open("config.json", "r+") as file:
-        adminvars = json.load(file)
-        adminvars.update({"welcome_message" : msg})
-    file.close()
-    
-    with open("config.json", "w") as file:
-        json.dump(adminvars, file)
-    file.close()
-    
-def set_welcome_image(url : str) -> None:
-    with open("config.json", "r+") as file:
-        adminvars = json.load(file)
-        adminvars.update({"welcome_image" : url})
-    file.close()
-    
-    with open("config.json", "w") as file:
-        json.dump(adminvars, file)
-    file.close()
 
 
 
