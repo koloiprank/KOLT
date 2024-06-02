@@ -3,13 +3,14 @@
 import discord
 from discord import Intents, Client, app_commands
 
-#*OS
+#*OS+tools
 from typing import Final
 import os
 from dotenv import load_dotenv
 import logging
 import time
 import asyncio
+from unidecode import unidecode
 
 #*Custom modules
 import KTwelcome
@@ -32,7 +33,7 @@ async def on_guild_join(guild):
     general = discord.utils.find(lambda x: x.name == 'general',  guild.text_channels)
     if general and general.permissions_for(guild.me).send_messages:
         embed=discord.Embed(title="**--- Hello everyone!! ---**", description=f"""
-        Thanks for adding me to {guild.name}!
+        Thanks for adding me to **{guild.name}**!
         You can use the `/help` command to get started!
         """, color=discord.Color.dark_purple())
         await general.send(embed=embed)
@@ -41,9 +42,10 @@ async def on_guild_join(guild):
     await KTtools.create_WMK(str(guild.id))
     await KTtools.create_banned_words(str(guild.id))
 
+
+
 #*Chat logging + Automod
 banned_words_per_server = KTtools.get_banned_words_per_server()
-
 @client.event
 async def on_message(message: discord.Message):
     author = message.author
@@ -53,65 +55,69 @@ async def on_message(message: discord.Message):
     if message.author != client.user:
         print(f">>> [{channel}]{author}: {content}")
         
-        if await KTtools.has_banned_word(message.content.lower(), banned_words_per_server[str(message.guild.id)]["bans"]) and not (message.author.bot or message.author == message.guild.owner or await KTtools.user_has_permissions(message.author, ["administrator"])):
-            wmk = await KTtools.load_WMK(str(message.guild.id))
-            config = await KTtools.load_config(str(message.guild.id))
-            
-            member = message.author
-            max_warns = config["max_warns"]
-            max_mutes = config["max_mutes"]
-            max_kicks = config["max_kicks"]
-            mute_duration = config["mute_duration"]
-            
-            await message.delete()
-            
-            if str(member.id) not in wmk:
-                await KTmoderation.add_user(member)
+        formated_content = unidecode(content.lower())
+        
+        if not (message.author.bot or message.author == message.guild.owner or await KTtools.user_has_permissions(message.author, ["administrator"])):
+            if await KTtools.has_banned_word(formated_content, banned_words_per_server[str(message.guild.id)]["bans"]):
+                
                 wmk = await KTtools.load_WMK(str(message.guild.id))
-            
-            if wmk[str(member.id)][0] < config["max_warns"]:
-                await KTmoderation.add_warn(member)
-                embed = discord.Embed(
-                description= f"{member.mention} has been warned for reason:\n\n **Using one/various banned word/s**",
-                colour = discord.Color.dark_gray()
-                )
-                embed.set_footer(text = f"Warnings left until mute: {max_warns - wmk[str(member.id)][0]-1}")
-                await channel.send(embed = embed)
-            elif wmk[str(member.id)][1] < config["max_mutes"]:
-                await KTmoderation.add_mute(member)
-                embed = discord.Embed(
-                description= f"{member.mention} has been muted for **{mute_duration}** minutes for reason:\n\n **Using one/various banned word/s**\n\nUnmuted <t:{int(time.time()) + (mute_duration * 60)}:R>",
-                colour = discord.Color.dark_gray()
-                )
-                embed.set_footer(text = f"Mutes left until kick: {max_mutes - wmk[str(member.id)][1]-1}")
-                await channel.send(embed = embed)
+                config = await KTtools.load_config(str(message.guild.id))
                 
-                config["muted_users"].append(str(member.id))
-                await KTtools.save_config(config, str(message.guild.id))
-                await KTmoderation.muteaction(member)
+                member = message.author
+                max_warns = config["max_warns"]
+                max_mutes = config["max_mutes"]
+                max_kicks = config["max_kicks"]
+                mute_duration = config["mute_duration"]
                 
-                await asyncio.sleep(config["mute_duration"] * 60)
-
-                if str(member.id) in config["muted_users"]:
-                    await KTmoderation.unmuteaction(member)
-                    config["muted_users"].remove(str(member.id))
+                await message.delete()
+                
+                if str(member.id) not in wmk:
+                    await KTmoderation.add_user(member)
+                    wmk = await KTtools.load_WMK(str(message.guild.id))
+                
+                if wmk[str(member.id)][0] < config["max_warns"]:
+                    await KTmoderation.add_warn(member)
+                    embed = discord.Embed(
+                    description= f"{member.mention} has been warned for reason:\n\n **Using one/various banned word/s**",
+                    colour = discord.Color.dark_gray()
+                    )
+                    embed.set_footer(text = f"Warnings left until mute: {max_warns - wmk[str(member.id)][0]-1}")
+                    await channel.send(embed = embed)
+                elif wmk[str(member.id)][1] < config["max_mutes"]:
+                    await KTmoderation.add_mute(member)
+                    embed = discord.Embed(
+                    description= f"{member.mention} has been muted for **{mute_duration}** minutes for reason:\n\n **Using one/various banned word/s**\n\nUnmuted <t:{int(time.time()) + (mute_duration * 60)}:R>",
+                    colour = discord.Color.dark_gray()
+                    )
+                    embed.set_footer(text = f"Mutes left until kick: {max_mutes - wmk[str(member.id)][1]-1}")
+                    await channel.send(embed = embed)
+                    
+                    config["muted_users"].append(str(member.id))
                     await KTtools.save_config(config, str(message.guild.id))
-            elif wmk[str(member.id)][2] < config["max_kicks"]:
-                await KTmoderation.add_kick(member)
-                embed = discord.Embed(
-                description= f"{member.mention} has been kicked for reason:\n\n **Using one/various banned word/s**",
-                colour = discord.Color.dark_gray()
-                )
-                embed.set_footer(text = f"Kicks left until ban: {max_kicks - wmk[str(member.id)][2]-1}")
-                await channel.send(embed = embed)
-                await member.kick(reason="Using one/various banned word/s after reaching max warns and max mutes")
-            else:
-                embed = discord.Embed(
-                description= f"{member.mention} has been banned for reason:\n\n **Using one/various banned word/s**",
-                colour = discord.Color.dark_gray()
-                )
-                await channel.send(embed = embed)
-                await member.ban(reason="Using one/various banned word/s after reaching max warns, max mutes and max kicks")
+                    await KTmoderation.muteaction(member)
+                    
+                    await asyncio.sleep(config["mute_duration"] * 60)
+
+                    if str(member.id) in config["muted_users"]:
+                        await KTmoderation.unmuteaction(member)
+                        config["muted_users"].remove(str(member.id))
+                        await KTtools.save_config(config, str(message.guild.id))
+                elif wmk[str(member.id)][2] < config["max_kicks"]:
+                    await KTmoderation.add_kick(member)
+                    embed = discord.Embed(
+                    description= f"{member.mention} has been kicked for reason:\n\n **Using one/various banned word/s**",
+                    colour = discord.Color.dark_gray()
+                    )
+                    embed.set_footer(text = f"Kicks left until ban: {max_kicks - wmk[str(member.id)][2]-1}")
+                    await channel.send(embed = embed)
+                    await member.kick(reason="Using one/various banned word/s after reaching max warns and max mutes")
+                else:
+                    embed = discord.Embed(
+                    description= f"{member.mention} has been banned for reason:\n\n **Using one/various banned word/s**",
+                    colour = discord.Color.dark_gray()
+                    )
+                    await channel.send(embed = embed)
+                    await member.ban(reason="Using one/various banned word/s after reaching max warns, max mutes and max kicks")
 
 
 
@@ -145,7 +151,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
             await user.remove_roles(discord.Object(id = role))
             print(f"{user} has been cleared of the role {role} from reaction {reaction}")
  
-            
+
 
 #*Welcome
 @client.event
@@ -166,11 +172,9 @@ async def on_member_join(member: discord.Member):
         elif config["welcome_type"] == "image":
             
             if await KTwelcome.create_welcome_image(member, config) is not None:
-                
                 await channel.send(file = await KTwelcome.create_welcome_image(member, config))
             
             else:
-                
                 embed = discord.Embed(
                 description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
                 colour = discord.Color.red()
@@ -192,7 +196,6 @@ async def on_member_join(member: discord.Member):
                 await channel.send(file = await KTwelcome.create_welcome_image(member, config))
             
             else:
-                
                 embed = discord.Embed(
                 description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
                 colour = discord.Color.red()
@@ -551,7 +554,7 @@ async def removewarn(interaction : discord.Interaction, member : discord.Member)
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "removeallwarns", description= "Removes all warns from a user")
+@tree.command(name = "removeallwarns", description= "Removes all warn counts from a user")
 async def removeallwarns(interaction : discord.Interaction, member : discord.Member) -> None:
     
     permissions = ["moderate_members"]
@@ -637,7 +640,7 @@ async def removemute(interaction : discord.Interaction, member : discord.Member)
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "removeallmutes", description= "Removes all mutes from a user, does NOT unmute")
+@tree.command(name = "removeallmutes", description= "Removes all mute counts from a user, does NOT unmute")
 async def removeallmutes(interaction : discord.Interaction, member : discord.Member) -> None:
     
     permissions = ["moderate_members"]
@@ -708,7 +711,7 @@ async def removekick(interaction : discord.Interaction, member : discord.Member)
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name="removeallkicks", description= "Removes all kicks from a user, does NOT kick")
+@tree.command(name="removeallkicks", description= "Removes all kick counts from a user, does NOT kick")
 async def removeallkicks(interaction : discord.Interaction, member : discord.Member) -> None:
     
     permissions = ["kick_members"]
@@ -761,7 +764,7 @@ async def ban(interaction : discord.Interaction, member : discord.Member, reason
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
 #Automoderation
-@tree.command(name = "setmaxwarncount", description= "Sets the max warn count")
+@tree.command(name = "maxwarncount", description= "Sets the max warn count")
 async def setmaxwarncount(interaction : discord.Interaction,count : int) -> None:
     
     permissions = ["administrator"]
@@ -792,8 +795,8 @@ async def setmaxwarncount(interaction : discord.Interaction,count : int) -> None
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "setmaxmutecount", description= "Sets the max mute count")
-async def setmaxmutecount(interaction : discord.Interaction,count : int) -> None:
+@tree.command(name = "maxmutecount", description= "Sets the max mute count")
+async def maxmutecount(interaction : discord.Interaction,count : int) -> None:
     
     permissions = ["administrator"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
@@ -823,8 +826,8 @@ async def setmaxmutecount(interaction : discord.Interaction,count : int) -> None
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "setmuteduration", description = "Sets automod mute duration in minutes")
-async def setmuteduration(interaction : discord.Interaction, duration : int) -> None:
+@tree.command(name = "muteduration", description = "Sets automod mute duration in minutes")
+async def muteduration(interaction : discord.Interaction, duration : int) -> None:
     
     permissions = ["administrator"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
@@ -852,8 +855,8 @@ async def setmuteduration(interaction : discord.Interaction, duration : int) -> 
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name="setmaxkickcount", description= "Sets the max kick count")
-async def setmaxkickcount(interaction : discord.Interaction,count : int) -> None:
+@tree.command(name="maxkickcount", description= "Sets the max kick count")
+async def maxkickcount(interaction : discord.Interaction,count : int) -> None:
     
     permissions = ["administrator"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
@@ -881,15 +884,15 @@ async def setmaxkickcount(interaction : discord.Interaction,count : int) -> None
         )
         await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "addbannedword", description= "Ban a word for the automod system to work on")
-async def addbannedword(interaction : discord.Interaction, word : str) -> None:
+@tree.command(name = "banword", description= "Ban a word for the automod system to work on")
+async def banword(interaction : discord.Interaction, word : str) -> None:
     
     permissions = ["administrator"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
     
     if has_perms:
         server_id = str(interaction.guild_id)
-        word = word.lower()
+        word = unidecode(word.lower())
         banned_words = await KTtools.load_banned_words(server_id)
         
         if word in banned_words["bans"]:
@@ -916,15 +919,15 @@ async def addbannedword(interaction : discord.Interaction, word : str) -> None:
         )
         return await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "removebannedword", description= "Remove a banned word")
-async def removebannedword(interaction : discord.Interaction, word : str) -> None:
+@tree.command(name = "unbanword", description= "Remove a banned word")
+async def unbanword(interaction : discord.Interaction, word : str) -> None:
     
     permissions = ["administrator"]
     has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
     
     if has_perms:
         server_id = str(interaction.guild_id)
-        word = word.lower()
+        word = unidecode(word.lower())
         banned_words = await KTtools.load_banned_words(server_id)
         
         if word not in banned_words["bans"]:
@@ -951,6 +954,79 @@ async def removebannedword(interaction : discord.Interaction, word : str) -> Non
         )
         return await interaction.response.send_message(embed = embed, ephemeral=True)
 
+@tree.command(name = "cleareveryone", description= "Clears everyone's warn, mute and kick counts")
+async def cleareveryone(interaction : discord.Interaction) -> None:
+
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        wmk = await KTtools.load_WMK(str(interaction.guild_id))
+        wmk = {"USER_TEMPLATE" : [0, 0, 0]}
+        await KTtools.save_WMK(wmk, str(interaction.guild_id))
+        
+        embed = discord.Embed(
+            description= "✅ Cleared everyone's warn, mute and kick counts.",
+            color = discord.Color.green()
+        )
+        return await interaction.response.send_message(embed = embed)
+    
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "clearbannedwords", description= "Removes all banned words")
+async def clearbannedwords(interaction : discord.Interaction) -> None:
+
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        banned_words = await KTtools.load_banned_words(str(interaction.guild_id))
+        banned_words = {"bans" : []}
+        await KTtools.save_banned_words(banned_words, str(interaction.guild_id))
+        
+        embed = discord.Embed(
+            description= "✅ Cleared all banned words.",
+            color = discord.Color.green()
+        )
+        return await interaction.response.send_message(embed = embed)
+    
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed, ephemeral=True)
+
+@tree.command(name = "resetconfig", description= "Resets the config to default")
+async def resetconfig(interaction : discord.Interaction) -> None:
+
+    permissions = ["administrator"]
+    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+    
+    if has_perms:
+        config = await KTtools.load_config(str(interaction.guild_id))
+        config = {"welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": [], "react_roles": {}, "autorole_channels": [], "muted_users": [], "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}
+        await KTtools.save_config(config, str(interaction.guild_id))
+        
+        embed = discord.Embed(
+            description= "✅ Reset the config.",
+            color = discord.Color.green()
+        )
+        return await interaction.response.send_message(embed = embed)
+    
+    else:
+        embed = discord.Embed(
+            description= "❌ You don't have permission to use this command.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed, ephemeral=True)
+
+
 
 
 
@@ -962,9 +1038,10 @@ async def on_ready() -> None:
     await tree.sync()
     print(f"{client.user} working")
 
+
+
 #!MAIN
 def main() -> None:
     client.run(token = TOKEN, log_handler=handler, root_logger=True)
-    
 if __name__ == "__main__":
     main()
