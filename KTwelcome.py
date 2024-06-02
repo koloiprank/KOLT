@@ -20,9 +20,6 @@ class ChannelDropdown(discord.ui.Select):
     async def callback(self, interaction : discord.Interaction) -> None:
         
         channel_ID = self.values[0]
-        
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_channel"] = str(channel_ID)
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -67,9 +64,7 @@ class ButtonImgMsg(discord.ui.View):
         
         image_modal = ImageInput()
         await interaction.response.send_modal(image_modal)
-        
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
+
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_type"] = "image"
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -80,8 +75,6 @@ class ButtonImgMsg(discord.ui.View):
         message_modal = MessageInput()
         await interaction.response.send_modal(message_modal)
         
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_type"] = "message"
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -91,9 +84,7 @@ class ButtonImgMsg(discord.ui.View):
         
         message_modal = BothInput()
         await interaction.response.send_modal(message_modal)
-        
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
+
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_type"] = "both"
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -108,8 +99,6 @@ class MessageInput(discord.ui.Modal, title= "Set message"):
     
     async def on_submit(self, interaction: discord.Interaction) -> None:
         message = self.message.value
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_message"] = message
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -139,8 +128,6 @@ class ImageInput(discord.ui.Modal, title = "Set image link"):
     
     async def on_submit(self, interaction: discord.Interaction) -> None:
         imagelink = self.image.value
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_image"] = imagelink
         await KTtools.save_config(config, str(interaction.guild.id))
@@ -176,15 +163,11 @@ class BothInput(discord.ui.Modal, title = "Set message and image link"):
     
     async def on_submit(self, interaction: discord.Interaction) -> None:
         imagelink = self.image.value
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_image"] = imagelink
         await KTtools.save_config(config, str(interaction.guild.id))
         
         message = self.text.value
-        if not KTtools.find_file(f"{interaction.guild.id}.json", ".\\configs\\"):
-            await KTtools.create_config(str(interaction.guild.id))
         config = await KTtools.load_config(str(interaction.guild.id))
         config["welcome_message"] = message
         await KTtools.save_config(config, str(interaction.guild.id))
