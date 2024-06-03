@@ -1,7 +1,8 @@
-import json
+import sqlite3
 import discord
 import os
 
+#!REDUNTANT!!! USE os.path.exists(file)
 def find_file(filename : str, path : str) -> str:
     for root, dirs, files in os.walk(path):
         if filename in files:
@@ -29,21 +30,53 @@ async def has_banned_word(message : str, banned_words : list) -> bool:
             return True
     return False
 
-async def create_config(server_id : str):
-    with open (f".\\configs\{server_id}.json", "x") as file:
-        json.dump({"welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": [], "react_roles": {}, "autorole_channels": [], "muted_users": [], "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}, file)
-    file.close()
-    return None
-async def load_config(server_id : str) -> dict[str, str]:
-    with open (f".\\configs\{server_id}.json", "r") as file:
-        data = json.load(file)
-    file.close()
+def create_config(server_id : str):
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    if not os.path.exists("configs.db"):
+        cursor.execute("""CREATE TABLE configs (
+            server_id text PRIMARY KEY,
+            welcome_channel text,
+            welcome_type text,
+            welcome_image text,
+            welcome_message text,
+            onjoin_roles text,
+            react_roles text,
+            autorole_channels text,
+            muted_users text,
+            max_warns integer,
+            max_mutes integer,
+            mute_duration integer,
+            max_kicks integer
+            )""")
+        connexion.commit()
+    try:
+        cursor.execute(f"INSERT INTO configs VALUES('{server_id}', '', 'text', '', 'Welcome @user to @server', '', '', '', '', 3, 3, 10, 3)")
+        connexion.commit()
+    except Exception:
+        print("[DB.CONFIGS.WARNING]>>>Could not insert into table, server_id already exists!!!")
+    
+    connexion.close()
+def load_config(server_id : str) -> dict[str, str]:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    cursor.execute("SELECT * FROM configs WHERE server_id=:server_id", {"server_id": server_id})
+    data = cursor.fetchone()
+    connexion.close()
     
     return data
-async def save_config(data : dict[str, str], server_id : str) -> None:
-    with open (f".\\configs\{server_id}.json", "w") as file:
-        json.dump(data, file)
-    file.close()
+def save_config(data : dict[str, str], server_id : str) -> None:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    for key in data:
+        cursor.execute(f"UPDATE configs SET {key} = ? WHERE server_id = {server_id}", (data[key],))
+        connexion.commit()
+    
+    connexion.close()
+
 
 async def create_WMK(server_id : str) -> None:
     with open (f".\\automod_counters\{server_id}.json", "x") as file:
@@ -116,3 +149,5 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
     
     return ct == len(permissions)
 
+
+save_config({"max_mutes": 3, "mute_duration" : 10}, "12345678987654321")
