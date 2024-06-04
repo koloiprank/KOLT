@@ -281,7 +281,7 @@ async def testwelcome(interaction : discord.Interaction) -> None:
                 )
                 
                 await interaction.response.send_message("ERROR", ephemeral = True)
-                await interaction.channel.send(embed = embed)
+                await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
 
         elif config["welcome_type"] == "both":
             
@@ -296,7 +296,7 @@ async def testwelcome(interaction : discord.Interaction) -> None:
             
             if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
                 
-                await interaction.channel.send(file = await KTwelcome.create_welcome_image(interaction.user, config))
+                await interaction.guild.get_channel(int(config["welcome_channel"])).send(file = await KTwelcome.create_welcome_image(interaction.user, config))
             
             else:
                 
@@ -305,7 +305,7 @@ async def testwelcome(interaction : discord.Interaction) -> None:
                 colour = discord.Color.red()
                 )
             
-                await interaction.channel.send(embed = embed)
+                await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
     else:
         embed = discord.Embed(
             description = "❌ You don't have permission to use this command.",
@@ -907,7 +907,7 @@ async def banword(interaction : discord.Interaction, word : str) -> None:
         banned_words_per_server = KTtools.get_banned_words_per_server()
         
         embed = discord.Embed(
-            description= f"✅ Added banned word {word} to list.",
+            description= f"✅ Banned word **{word}**.",
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
@@ -942,7 +942,7 @@ async def unbanword(interaction : discord.Interaction, word : str) -> None:
         banned_words_per_server = KTtools.get_banned_words_per_server()
         
         embed = discord.Embed(
-            description= f"✅ Removed banned word {word} from list.",
+            description= f"✅Unbanned **{word}** from word list.",
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)

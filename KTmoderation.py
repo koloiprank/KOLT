@@ -110,7 +110,7 @@ async def mute(interaction : discord.Interaction, member : discord.Member, reaso
         return await interaction.response.send_message(embed = embed, ephemeral=True)
         
     embed= discord.Embed(
-            description= f"{member.mention} has been muted for **{duration}** minutes for reason:\n\n **{reason}**.\n\nUnmuted <t:{int(time.time()) + (duration * 60)}:R>**",
+            description= f"{member.mention} has been muted for **{duration}** minutes for reason:\n\n **{reason}**.\n\nUnmuted **<t:{int(time.time()) + (duration * 60)}:R>**",
             colour = discord.Color.dark_gray()
         )
     if mute_count == config["max_mutes"]:
