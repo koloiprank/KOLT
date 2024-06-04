@@ -41,11 +41,16 @@ async def on_guild_join(guild):
     await KTtools.create_config(str(guild.id))
     await KTtools.create_WMK(str(guild.id))
     await KTtools.create_banned_words(str(guild.id))
+    await KTtools.create_playlist(str(guild.id))
+    
+    global banned_words_per_server
+    banned_words_per_server = KTtools.get_banned_words_per_server()
 
 
 
 #*Chat logging + Automod
-banned_words_per_server = KTtools.get_banned_words_per_server()
+if os.path.exists("configs.db"):
+    banned_words_per_server = KTtools.get_banned_words_per_server()
 @client.event
 async def on_message(message: discord.Message):
     author = message.author

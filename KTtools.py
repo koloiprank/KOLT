@@ -1,7 +1,6 @@
 import sqlite3
 import discord
 import os
-import asyncio
 
 def eval_no_error(data : str) -> dict | list:
     try:
@@ -36,7 +35,7 @@ async def has_banned_word(message : str, banned_words : list) -> bool:
             return True
     return False
 
-async def create_config(server_id : str):
+def create_config(server_id : str):
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
@@ -59,8 +58,6 @@ async def create_config(server_id : str):
         connexion.commit()
     except Exception:
         ...
-    
-    asyncio.sleep(4)
     
     try:
         cursor.execute(f"INSERT INTO serverconfig VALUES('{server_id}', '', 'text', '', 'Welcome @user to @server', '[]', '{{}}', '[]', '[]', 3, 3, 10, 3)")
@@ -113,8 +110,6 @@ async def create_WMK(server_id : str) -> None:
     except Exception:
         ...
     
-    asyncio.sleep(4)
-    
     try:
         cursor.execute(f"INSERT INTO punishcounts VALUES('{server_id}', '{{}}')")
         connexion.commit()
@@ -149,8 +144,6 @@ async def create_banned_words(server_id : str) -> None:
         connexion.commit()
     except Exception:
         ...
-    
-    asyncio.sleep(4)
     
     try:
         cursor.execute(f"INSERT INTO bannedwords VALUES('{server_id}', '[]')")
@@ -214,3 +207,45 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
             ct+=1
     
     return ct == len(permissions)
+
+def create_playlist(server_id : str) -> None:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    try:
+        cursor.execute("""CREATE TABLE playlist (
+            server_id text PRIMARY KEY,
+            playlist text,
+            isplaying text,
+            repeat text,
+            shuffle text)""")
+        connexion.commit()
+    except Exception:
+        ...
+    
+    try:
+        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}', '[]', 'False', 'False', 'False')")
+        connexion.commit()
+    except Exception:
+        print("[DB.PLAYLIST.WARNING]>>>Could not insert into table, server_id already exists!!!")
+async def load_playlist(server_id : str) -> dict:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    cursor.execute("SELECT * FROM playlist WHERE server_id=:server_id", {"server_id": server_id})
+    data = cursor.fetchone()
+    connexion.close()
+    
+    playlist_template = ["server_id", "playlist", "isplaying", "repeat", "shuffle"]
+    return {playlist_template[i] : eval_no_error(data[i]) for i in range(len(playlist_template))}
+async def save_playlist(data : list, server_id : str) -> None:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    for key in data:
+        cursor.execute(f"UPDATE playlist SET {key} = ? WHERE server_id = {server_id}", (f"{data[key]}",))
+        connexion.commit()
+    
+    connexion.close()
+
+create_playlist("1067917569161441402")
