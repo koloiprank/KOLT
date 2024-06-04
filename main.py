@@ -58,7 +58,7 @@ async def on_message(message: discord.Message):
         formated_content = unidecode(content.lower())
         
         if not (message.author.bot or message.author == message.guild.owner or await KTtools.user_has_permissions(message.author, ["administrator"])):
-            if await KTtools.has_banned_word(formated_content, banned_words_per_server[str(message.guild.id)]["bans"]):
+            if await KTtools.has_banned_word(formated_content, banned_words_per_server[str(message.guild.id)]):
                 
                 wmk = await KTtools.load_WMK(str(message.guild.id))
                 config = await KTtools.load_config(str(message.guild.id))
@@ -895,13 +895,13 @@ async def banword(interaction : discord.Interaction, word : str) -> None:
         word = unidecode(word.lower())
         banned_words = await KTtools.load_banned_words(server_id)
         
-        if word in banned_words["bans"]:
+        if word in banned_words:
             embed = discord.Embed(
                 description= f"❌ '**{word}**' is already banned.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        banned_words["bans"].append(word)
+        banned_words.append(word)
         await KTtools.save_banned_words(banned_words, server_id)
         global banned_words_per_server
         banned_words_per_server = KTtools.get_banned_words_per_server()
@@ -930,13 +930,13 @@ async def unbanword(interaction : discord.Interaction, word : str) -> None:
         word = unidecode(word.lower())
         banned_words = await KTtools.load_banned_words(server_id)
         
-        if word not in banned_words["bans"]:
+        if word not in banned_words:
             embed = discord.Embed(
                 description= f"❌ **'{word}'** is not banned.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        banned_words["bans"].remove(word)
+        banned_words.remove(word)
         await KTtools.save_banned_words(banned_words, server_id)
         global banned_words_per_server
         banned_words_per_server = KTtools.get_banned_words_per_server()
@@ -986,7 +986,7 @@ async def clearbannedwords(interaction : discord.Interaction) -> None:
     
     if has_perms:
         banned_words = await KTtools.load_banned_words(str(interaction.guild_id))
-        banned_words = {"bans" : []}
+        banned_words = []
         await KTtools.save_banned_words(banned_words, str(interaction.guild_id))
         
         embed = discord.Embed(
@@ -1010,7 +1010,7 @@ async def resetconfig(interaction : discord.Interaction) -> None:
     
     if has_perms:
         config = await KTtools.load_config(str(interaction.guild_id))
-        config = {"welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": [], "react_roles": {}, "autorole_channels": [], "muted_users": [], "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}
+        config = {"server_id" : str(interaction.guild_id), "welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": "[]", "react_roles": "{}", "autorole_channels": "[]", "muted_users": "[]", "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}
         await KTtools.save_config(config, str(interaction.guild_id))
         
         embed = discord.Embed(

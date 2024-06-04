@@ -1,24 +1,30 @@
 import sqlite3
 import discord
 import os
+import asyncio
 
-#!REDUNTANT!!! USE os.path.exists(file)
+def eval_no_error(data : str) -> dict | list:
+    try:
+        return eval(data)
+    except Exception:
+        return data
+#!REDUNTANT! USE os.path.exists(file)
 def find_file(filename : str, path : str) -> str:
     for root, dirs, files in os.walk(path):
         if filename in files:
             return os.path.join(root, filename)
 
-def get_banned_words_per_server() -> dict[str: dict[str : str]]:
+def get_banned_words_per_server() -> dict[str: list[str]]:
     to_return = {}
-    for root, dirs, files in os.walk(".\\banned_words"):
-        for file in files:
-            with open(f".\\banned_words\{file}", "r") as file:
-                data = json.load(file)
-            file.close()
-            
-            filename = str(file.name)[15:].rstrip(".json")
-            to_return[filename] = data
-    
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+
+    cursor.execute("SELECT * FROM bannedwords")
+    data = cursor.fetchall()
+    connexion.close()
+
+    for row in data:
+        to_return[row[0]] = eval_no_error(row[1])
     return to_return
 async def has_banned_word(message : str, banned_words : list) -> bool:
 
@@ -30,12 +36,12 @@ async def has_banned_word(message : str, banned_words : list) -> bool:
             return True
     return False
 
-def create_config(server_id : str):
+async def create_config(server_id : str):
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
-    if not os.path.exists("configs.db"):
-        cursor.execute("""CREATE TABLE configs (
+    try:
+        cursor.execute("""CREATE TABLE serverconfig (
             server_id text PRIMARY KEY,
             welcome_channel text,
             welcome_type text,
@@ -51,63 +57,123 @@ def create_config(server_id : str):
             max_kicks integer
             )""")
         connexion.commit()
+    except Exception:
+        ...
+    
+    asyncio.sleep(4)
+    
     try:
-        cursor.execute(f"INSERT INTO configs VALUES('{server_id}', '', 'text', '', 'Welcome @user to @server', '', '', '', '', 3, 3, 10, 3)")
+        cursor.execute(f"INSERT INTO serverconfig VALUES('{server_id}', '', 'text', '', 'Welcome @user to @server', '[]', '{{}}', '[]', '[]', 3, 3, 10, 3)")
         connexion.commit()
     except Exception:
         print("[DB.CONFIGS.WARNING]>>>Could not insert into table, server_id already exists!!!")
     
     connexion.close()
-def load_config(server_id : str) -> dict[str, str]:
+async def load_config(server_id : str) -> dict[str, str]:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
-    cursor.execute("SELECT * FROM configs WHERE server_id=:server_id", {"server_id": server_id})
+    cursor.execute("SELECT * FROM serverconfig WHERE server_id=:server_id", {"server_id": server_id})
     data = cursor.fetchone()
     connexion.close()
+    config_template = ["server_id", 
+                       "welcome_channel", 
+                       "welcome_type", 
+                       "welcome_image", 
+                       "welcome_message", 
+                       "onjoin_roles", 
+                       "react_roles", 
+                       "autorole_channels", 
+                       "muted_users", 
+                       "max_warns", 
+                       "max_mutes", 
+                       "mute_duration", 
+                       "max_kicks"]
     
-    return data
-def save_config(data : dict[str, str], server_id : str) -> None:
+    return {config_template[i] : eval_no_error(data[i]) for i in range(len(config_template))}
+async def save_config(data : dict[str, str], server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
     for key in data:
-        cursor.execute(f"UPDATE configs SET {key} = ? WHERE server_id = {server_id}", (data[key],))
+        cursor.execute(f"UPDATE serverconfig SET {key} = ? WHERE server_id = {server_id}", (f"{data[key]}",))
         connexion.commit()
     
     connexion.close()
 
-
 async def create_WMK(server_id : str) -> None:
-    with open (f".\\automod_counters\{server_id}.json", "x") as file:
-        json.dump({"USER_TEMPLATE": [0, 0, 0]},file)
-    file.close()
-    return None
-async def load_WMK(server_id : str) -> dict:
-    with open(f".\\automod_counters\\{server_id}.json", "r") as file:
-        data = json.load(file)
-    file.close()
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
     
-    return data
+    try:
+        cursor.execute("""CREATE TABLE punishcounts (
+            server_id text PRIMARY KEY,
+            count text)""")
+        connexion.commit()
+    except Exception:
+        ...
+    
+    asyncio.sleep(4)
+    
+    try:
+        cursor.execute(f"INSERT INTO punishcounts VALUES('{server_id}', '{{}}')")
+        connexion.commit()
+    except Exception:
+        print("[DB.WMK.WARNING]>>>Could not insert into table, server_id already exists!!!")
+async def load_WMK(server_id : str) -> dict:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    cursor.execute("SELECT * FROM punishcounts WHERE server_id=:server_id", {"server_id": server_id})
+    data = cursor.fetchone()
+    connexion.close()
+    
+    return eval_no_error( eval_no_error(data)[1] )
 async def save_WMK(data : dict, server_id : str) -> None:
-    with open(f".\\automod_counters\\{server_id}.json", "w") as file:
-        json.dump(data, file)
-    file.close()
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+
+    cursor.execute(f"UPDATE punishcounts SET 'count' = ? WHERE server_id = {server_id}", (str(data),))
+    connexion.commit()
+    
+    connexion.close()
 
 async def create_banned_words(server_id : str) -> None:
-    with open (f".\\banned_words\{server_id}.json", "x") as file:
-        json.dump({"bans": []}, file)
-    file.close()
-    return None
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    try:
+        cursor.execute("""CREATE TABLE bannedwords (
+            server_id text PRIMARY KEY,
+            bans text)""")
+        connexion.commit()
+    except Exception:
+        ...
+    
+    asyncio.sleep(4)
+    
+    try:
+        cursor.execute(f"INSERT INTO bannedwords VALUES('{server_id}', '[]')")
+        connexion.commit()
+    except Exception:
+        print("[DB.BANNEDWORDS.WARNING]>>>Could not insert into table, server_id already exists!!!")
 async def load_banned_words(server_id : str) -> dict:
-    with open(f".\\banned_words\{server_id}.json", "r") as file:
-        data = json.load(file)
-    file.close()
-    return data
-async def save_banned_words(data : dict, server_id : str) -> None:
-    with open(f".\\banned_words\{server_id}.json", "w") as file:
-        json.dump(data, file)
-    file.close()  
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    cursor.execute("SELECT * FROM bannedwords WHERE server_id=:server_id", {"server_id": server_id})
+    data = cursor.fetchone()
+    connexion.close()
+    
+    return eval_no_error(data[1])
+async def save_banned_words(data : list, server_id : str) -> None:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    
+    cursor.execute(f"UPDATE bannedwords SET 'bans' = ? WHERE server_id = {server_id}", (str(data),))
+    connexion.commit()
+    
+    connexion.close()
 
 async def format_message(msg : str, member : discord.Member, guild : discord.Guild) -> str:
     
@@ -148,6 +214,3 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
             ct+=1
     
     return ct == len(permissions)
-
-
-save_config({"max_mutes": 3, "mute_duration" : 10}, "12345678987654321")
