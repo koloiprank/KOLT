@@ -224,7 +224,7 @@ def create_playlist(server_id : str) -> None:
         ...
     
     try:
-        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}', '[]', 'False', 'False', 'False')")
+        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}','[]', 'False', 'False', 'False')")
         connexion.commit()
     except Exception:
         print("[DB.PLAYLIST.WARNING]>>>Could not insert into table, server_id already exists!!!")
@@ -248,4 +248,23 @@ async def save_playlist(data : list, server_id : str) -> None:
     
     connexion.close()
 
-create_playlist("1067917569161441402")
+def resetplaylist()-> None:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    data = {"playlist": "[]", "isplaying": "False", "repeat": "False", "shuffle": "False"}
+    server_id = "1067917569161441402"
+    
+    for key in data:
+        cursor.execute(f"UPDATE playlist SET {key} = ? WHERE server_id = {server_id}", (f"{data[key]}",))
+        connexion.commit()
+    
+    connexion.close()
+def dropplaylist()-> None:
+    connexion = sqlite3.connect("configs.db")
+    cursor = connexion.cursor()
+    cursor.execute("DROP TABLE playlist")
+    connexion.commit()
+    connexion.close()
+
+if __name__ == "__main__":
+    resetplaylist()

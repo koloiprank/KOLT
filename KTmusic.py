@@ -1,29 +1,58 @@
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 import KTtools
 import discord
 from random import randint
+import asyncio
+
 
 def searchyt(query : str) -> dict[str : str]:
-    with YoutubeDL({"format": "bestaudio"}) as ydl:
+    with YoutubeDL({"format": "bestaudio", "noplaylist" : "True"}) as ydl:
         try:
-            info = ydl.extract_info(f"ytsearch:{query}", download=False)["entries"][0]
+            info = ydl.extract_info("ytsearch:%s" % query, download=False)["entries"][0]
         except Exception:
             return False
     
-    return {"source": info["formats"[0]["url"]], "title": info["title"]}
+    return {"title": info["title"], "source": info["url"]}
 
-async def play_next(interaction : discord.Interaction) -> None:
+#TODO ARREGLAR SHUFFLE
+async def play_next(interaction : discord.Interaction, song : str, nextidx : int) -> None:
     server_id = str(interaction.guild.id)
-    if len(KTtools.load_playlist[server_id]) > 0:
-        await KTtools.save_playlist({"isplaying": "True"}, str(interaction.guild.id))
-        
-        if await KTtools.load_playlist(server_id)["shuffle"] is True:
-            musicurl = await KTtools.load_playlist[server_id][randint(0, len(await KTtools.load_playlist[server_id]["playlist"]))]["source"]
-        else:
-            musicurl = await KTtools.load_playlist[server_id][0]["source"]
-        if await KTtools.load_playlist(server_id)["repeat"] is False:
-            await KTtools.save_playlist({"playlist": await KTtools.load_playlist[server_id][1:]}, str(interaction.guild.id))
-        
-        interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl), after=lambda e: play_next(interaction))
+    playlistconfig = await KTtools.load_playlist(server_id)
+    playing = searchyt(playlistconfig["playlist"][nextidx])
+    
+    playlistconfig["isplaying"] = True
+    await KTtools.save_playlist(playlistconfig, server_id)
+
+    musicurl = playing["source"]
+
+    #Repeat
+    if not playlistconfig["repeat"]:
+        new_playlist = playlistconfig["playlist"].remove(song)
+        await KTtools.save_playlist(playlistconfig, server_id)
     else:
-        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False"}, str(interaction.guild.id))
+        new_playlist = playlistconfig["playlist"]
+        new_playlist.append(song)
+        new_playlist.remove(song)
+        playlistconfig["playlist"] = new_playlist
+        await KTtools.save_playlist(playlistconfig, server_id)
+    
+    interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
+    
+    while interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
+        await asyncio.sleep(1)
+    
+    playlistconfig = await KTtools.load_playlist(server_id)
+    if len(playlistconfig["playlist"]) != 0:
+        if not playlistconfig["shuffle"]:
+            await play_next(interaction, playlistconfig["playlist"][0], 0)
+        else:
+            idxnext = randint(0, len(playlistconfig["playlist"])-1)
+            await play_next(interaction, playlistconfig["playlist"][idxnext], idxnext)
+    else:
+        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False"}, server_id)
+        embed = discord.Embed(
+            description = "Playlist ended!",
+            color = discord.Color.dark_purple()
+        )
+        await interaction.channel.send(embed = embed)
+
