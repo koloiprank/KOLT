@@ -25,11 +25,12 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
     try:
         upnext_playlist = ""
         for idx in range(1, 12):
-            try:
-                upnext_playlist += f"- **{idx}.** {get_youtube_search_info(playlistconfig['playlist'][idx])['title']}\n"
-            except Exception:
-                break
-            if idx == 12:
+            if idx != 11:
+                try:
+                    upnext_playlist += f"- **{idx}.** {get_youtube_search_info(playlistconfig['playlist'][idx])['title']}\n"
+                except Exception:
+                    break
+            elif idx == 11:
                 upnext_playlist += "And more..."
         embed = discord.Embed(
             title = "**CURRENTLY PLAYING**",
