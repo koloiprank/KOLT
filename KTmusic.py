@@ -3,7 +3,7 @@ import KTtools
 import discord
 from random import randint
 import asyncio
-
+from youtube_search import YoutubeSearch
 
 def searchyt(query : str) -> dict[str : str]:
     with YoutubeDL({"format": "bestaudio", "noplaylist" : "True"}) as ydl:
@@ -14,12 +14,33 @@ def searchyt(query : str) -> dict[str : str]:
     
     return {"title": info["title"], "source": info["url"]}
 
+def get_youtube_search_info(query : str) -> dict[str : str]:
+    return YoutubeSearch(query, max_results=1).to_dict()[0]
+
 async def play_next(interaction : discord.Interaction, song : str) -> None:
     server_id = str(interaction.guild.id)
     playlistconfig = await KTtools.load_playlist(server_id)
     playing = searchyt(playlistconfig["playlist"][0])
     
     try:
+        upnext_playlist = ""
+        for idx in range(1, 12):
+            try:
+                upnext_playlist += f"- **{idx}.** {get_youtube_search_info(playlistconfig['playlist'][idx])['title']}\n"
+            except Exception:
+                break
+            if idx == 12:
+                upnext_playlist += "And more..."
+        embed = discord.Embed(
+            title = "**CURRENTLY PLAYING**",
+            description = f"### **Now playing:**\n{playing['title']}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
+            color = discord.Color.dark_purple(),
+            url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
+        )
+        embed.set_footer(text = f"Repeat: {'on' if playlistconfig['repeat'] else 'off'}\nShuffle: {'on' if playlistconfig['shuffle'] else 'off'}")
+        embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][1])
+        await interaction.channel.send(embed = embed)
+        
         playlistconfig["isplaying"] = True
         await KTtools.save_playlist(playlistconfig, server_id)
         musicurl = playing["source"]
@@ -69,3 +90,5 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
             color = discord.Color.dark_purple()
         )
         await interaction.channel.send(embed = embed)
+
+
