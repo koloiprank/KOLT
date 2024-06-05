@@ -11,6 +11,7 @@ import logging
 import time
 import asyncio
 from unidecode import unidecode
+from random import randint
 
 #*Custom modules
 import KTwelcome
@@ -1036,27 +1037,27 @@ async def resetconfig(interaction : discord.Interaction) -> None:
 #*Play command
 @tree.command(name = "connect", description= "Connect to voice channel")
 async def connect(interaction : discord.Interaction) -> None:
+    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+    
     if not interaction.user.voice:
         embed = discord.Embed(
             description= "❌ You are not connected to a voice channel.",
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
-    else:
-        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-        if voice and voice.is_connected():
-            embed = discord.Embed(
-                description= "❌ I am already connected to a voice channel.",
-                color = discord.Color.red()
-            )
-            return await interaction.response.send_message(embed = embed)   
-        else:
-            voice = await interaction.user.voice.channel.connect()
-            embed = discord.Embed(
-                description= "✅ Connected to voice channel.",
-                color = discord.Color.green()
-            )
-            return await interaction.response.send_message(embed = embed)
+    elif voice and voice.is_connected():
+        embed = discord.Embed(
+            description= "❌ I am already connected to a voice channel. Use /move to move me to your channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)   
+    
+    voice = await interaction.user.voice.channel.connect()
+    embed = discord.Embed(
+        description= "✅ Connected to voice channel.",
+        color = discord.Color.green()
+    )
+    return await interaction.response.send_message(embed = embed)
 
 @tree.command(name = "disconnect", description= "Disconnect from voice channel")
 async def disconnect(interaction : discord.Interaction) -> None:
@@ -1069,26 +1070,25 @@ async def disconnect(interaction : discord.Interaction) -> None:
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
-    elif voice and voice.is_connected():
-        if interaction.user.voice.channel != interaction.guild.me.voice.channel:
-            embed = discord.Embed(
-                description= "❌ You are not in my voice channel.",
-                color = discord.Color.red()
-            )
-            return await interaction.response.send_message(embed = embed)
-        
-        await voice.disconnect()
-        embed = discord.Embed(
-            description= "✅ Disconnected from voice channel.",
-            color = discord.Color.green()
-        )
-        return await interaction.response.send_message(embed = embed)
-    else:
+    elif not voice or not voice.is_connected():
         embed = discord.Embed(
             description= "❌ I am not connected to a voice channel.",
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+
+    await voice.disconnect()
+    embed = discord.Embed(
+        description= "✅ Disconnected from voice channel.",
+        color = discord.Color.green()
+    )
+    return await interaction.response.send_message(embed = embed)
 
 @tree.command(name = "forcedisconnect", description= "Disconnect from voice channel by force")
 async def forcedisconnect(interaction : discord.Interaction) -> None:
@@ -1096,6 +1096,7 @@ async def forcedisconnect(interaction : discord.Interaction) -> None:
     voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
     if voice and voice.is_connected():
         await voice.disconnect()
+        await stop(interaction)
         embed = discord.Embed(
             description= "✅ Disconnected from voice channel.",
             color = discord.Color.green()
@@ -1118,15 +1119,15 @@ async def move(interaction : discord.Interaction) -> None:
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel == interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ I am already in your voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
     elif not interaction.guild.me.voice:
         embed = discord.Embed(
             description= "❌ I am not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel == interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ I am already in your voice channel.",
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
@@ -1136,13 +1137,13 @@ async def move(interaction : discord.Interaction) -> None:
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
-    else:
-        await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
-        embed = discord.Embed(
-            description= "✅ Moved to new voice channel.",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
+    
+    await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
+    embed = discord.Embed(
+        description= "✅ Moved to new voice channel.",
+        color = discord.Color.green()
+    )
+    await interaction.response.send_message(embed = embed)
         
 @tree.command(name = "play", description= "Play a song. Use queue to queue more songs")
 async def play(interaction : discord.Interaction, song : str) -> None:
@@ -1178,13 +1179,32 @@ async def play(interaction : discord.Interaction, song : str) -> None:
     await KTtools.save_playlist(playlistconfig, server_id)
     
     if not playlistconfig["isplaying"]:
-        await KTmusic.play_next(interaction, song, 0)
+        await KTmusic.play_next(interaction, song)
 
 @tree.command(name = "stop", description = "Stop playing music")
 async def stop(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
+    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+    playlistconfig = await KTtools.load_playlist(server_id)
     
-    #TODO: Errores
+    if not voice or not voice.is_connected():
+        embed = discord.Embed(
+            description= "❌ I am not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not playlistconfig["isplaying"]:
+        embed = discord.Embed(
+            description= "❌ I am not playing anything.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
     
     embed = discord.Embed(
         description= "✅ Stopped the music",
@@ -1192,18 +1212,38 @@ async def stop(interaction : discord.Interaction) -> None:
     )
     await interaction.response.send_message(embed = embed)
 
+    interaction.guild.voice_client.stop()
     playlistconfig = await KTtools.load_playlist(server_id)
     playlistconfig["playlist"] = []
     playlistconfig["isplaying"] = False
     await KTtools.save_playlist(playlistconfig, server_id)
     
-    interaction.guild.voice_client.stop()
+
 
 @tree.command(name = "pause", description = "Pause the playlist")
 async def pause(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
+    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+    playlistconfig = await KTtools.load_playlist(server_id)
     
-    #TODO: Errores
+    if not voice or not voice.is_connected():
+        embed = discord.Embed(
+            description= "❌ I am not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not playlistconfig["isplaying"]:
+        embed = discord.Embed(
+            description= "❌ I am not playing anything.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
     
     embed = discord.Embed(
         description= "✅ Stopped the music",
@@ -1225,7 +1265,24 @@ async def pause(interaction : discord.Interaction) -> None:
 async def repeat(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
     
-    #TODO: Errores
+    if not interaction.user.voice:
+        embed = discord.Embed(
+            description= "❌ You are not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not interaction.guild.me.voice:
+        embed = discord.Embed(
+            description= "❌ I am not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
     
     playlistconfig = await KTtools.load_playlist(server_id)
     playlistconfig["repeat"] = not playlistconfig["repeat"]
@@ -1247,7 +1304,24 @@ async def repeat(interaction : discord.Interaction) -> None:
 async def shuffle(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
     
-    #TODO: Errores
+    if not interaction.user.voice:
+        embed = discord.Embed(
+            description= "❌ You are not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not interaction.guild.me.voice:
+        embed = discord.Embed(
+            description= "❌ I am not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
     
     playlistconfig = await KTtools.load_playlist(server_id)
     playlistconfig["shuffle"] = not playlistconfig["shuffle"]
@@ -1264,6 +1338,60 @@ async def shuffle(interaction : discord.Interaction) -> None:
             color = discord.Color.green()
         )
     await interaction.response.send_message(embed = embed)
+
+@tree.command(name = "next", description = "Play the next song in the playlist")
+async def nextc(interaction : discord.Interaction) -> None:
+    playlistconfig = await KTtools.load_playlist(str(interaction.guild.id))
+    server_id = str(interaction.guild.id)
+    
+    if not playlistconfig["isplaying"]:
+        embed = discord.Embed(
+            description= "❌ I am not playing anything.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not interaction.user.voice:
+        embed = discord.Embed(
+            description= "❌ You are not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif (len(playlistconfig["playlist"]) == 1) and not playlistconfig["repeat"]:
+        embed = discord.Embed(
+            description= "❌ Last song in the playlist, use /stop to stop the music",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+
+    embed = discord.Embed(
+        description= "✅ Playing next song.",
+        color = discord.Color.green()
+    )
+    await interaction.response.send_message(embed = embed)
+
+    await KTtools.save_playlist({"playlist": "[]", "isplaying": False}, server_id)
+    interaction.guild.voice_client.stop()
+    
+    if playlistconfig["repeat"]:
+        playingsong = playlistconfig["playlist"][0]
+        playlistconfig["playlist"].append(playingsong)
+        playlistconfig["playlist"].remove(playingsong)
+        await KTtools.save_playlist(playlistconfig, str(interaction.guild.id))
+    else:
+        playlistconfig["playlist"].pop(0)
+        await KTtools.save_playlist(playlistconfig, str(interaction.guild.id))
+    
+    playlistconfig = await KTtools.load_playlist(server_id)
+    if playlistconfig["shuffle"]:
+        idxnext = randint(0, len(playlistconfig["playlist"])-1)
+        playlistconfig["playlist"][0], playlistconfig["playlist"][idxnext] = playlistconfig["playlist"][idxnext], playlistconfig["playlist"][0]
+        await KTtools.save_playlist(playlistconfig, server_id)
 
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
