@@ -20,8 +20,11 @@ def get_youtube_search_info(query : str) -> dict[str : str]:
 async def play_next(interaction : discord.Interaction, song : str) -> None:
     server_id = str(interaction.guild.id)
     playlistconfig = await KTtools.load_playlist(server_id)
-    playing = searchyt(playlistconfig["playlist"][0])
     
+    playlistconfig["isplaying"] = True
+    await KTtools.save_playlist(playlistconfig, server_id)
+    playing = searchyt(playlistconfig["playlist"][0])
+        
     try:
         upnext_playlist = ""
         for idx in range(1, 12):
@@ -42,7 +45,6 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
         embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][1])
         await interaction.channel.send(embed = embed)
         
-        playlistconfig["isplaying"] = True
         await KTtools.save_playlist(playlistconfig, server_id)
         musicurl = playing["source"]
 
@@ -53,8 +55,7 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
         #Repeat check
         playlistconfig = await KTtools.load_playlist(server_id)
         if not playlistconfig["repeat"] and len(playlistconfig["playlist"]) != 0:
-            new_playlist = playlistconfig["playlist"].remove(song) if song in playlistconfig["playlist"] else playlistconfig["playlist"]
-            playlistconfig["playlist"] = new_playlist
+            playlistconfig["playlist"].remove(song) if song in playlistconfig["playlist"] else playlistconfig["playlist"]
             await KTtools.save_playlist(playlistconfig, server_id)
         else:
             if len(playlistconfig["playlist"]) != 0 and song in playlistconfig["playlist"]:
@@ -65,7 +66,7 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
                 await KTtools.save_playlist(playlistconfig, server_id)
     except Exception:
         embed = discord.Embed(
-            description= f"❌ I couldn't find and play **{song}**\nIf you used a link, try fetching a new one and try again",
+            description= f"❌ I couldn't find and play **{song}**\nDeleting from playlist, you may retry again",
             color = discord.Color.red()
         )
         await interaction.channel.send(embed = embed)
