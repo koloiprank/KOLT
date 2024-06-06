@@ -98,7 +98,7 @@ async def save_config(data : dict[str, str], server_id : str) -> None:
     
     connexion.close()
 
-async def create_WMK(server_id : str) -> None:
+def create_WMK(server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
@@ -133,7 +133,7 @@ async def save_WMK(data : dict, server_id : str) -> None:
     
     connexion.close()
 
-async def create_banned_words(server_id : str) -> None:
+def create_banned_words(server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
@@ -267,4 +267,4 @@ def dropplaylist()-> None:
     connexion.close()
 
 if __name__ == "__main__":
-    resetplaylist()
+    ...

@@ -92,5 +92,3 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
             color = discord.Color.dark_purple()
         )
         await interaction.channel.send(embed = embed)
-
-

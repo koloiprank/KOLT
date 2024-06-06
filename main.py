@@ -1092,7 +1092,14 @@ async def disconnect(interaction : discord.Interaction) -> None:
 
 @tree.command(name = "forcedisconnect", description= "Disconnect from voice channel by force")
 async def forcedisconnect(interaction : discord.Interaction) -> None:
-    #TODO Verificar rol de DJ o permisos adminsitrador
+    if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
+    
     voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
     if voice and voice.is_connected():
         await voice.disconnect()
@@ -1138,6 +1145,14 @@ async def move(interaction : discord.Interaction) -> None:
         )
         return await interaction.response.send_message(embed = embed)
     
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
+    
     await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
     embed = discord.Embed(
         description= "✅ Moved to new voice channel.",
@@ -1145,7 +1160,7 @@ async def move(interaction : discord.Interaction) -> None:
     )
     await interaction.response.send_message(embed = embed)
         
-@tree.command(name = "play", description= "Play a song. Use queue to queue more songs")
+@tree.command(name = "play", description= "Play or queue a song into the playlist")
 async def play(interaction : discord.Interaction, song : str) -> None:
     server_id = str(interaction.guild_id)
     playlistconfig = await KTtools.load_playlist(server_id)
@@ -1179,9 +1194,9 @@ async def play(interaction : discord.Interaction, song : str) -> None:
     await KTtools.save_playlist(playlistconfig, server_id)
     
     if not playlistconfig["isplaying"]:
-        await KTmusic.play_next(interaction, song)
+        await asyncio.to_thread(await KTmusic.play_next(interaction, song))
 
-@tree.command(name = "stop", description = "Stop playing music")
+@tree.command(name = "stop", description = "Stop playing music and clear playlist")
 async def stop(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
     voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
@@ -1206,6 +1221,14 @@ async def stop(interaction : discord.Interaction) -> None:
         )
         return await interaction.response.send_message(embed = embed)
     
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
+    
     embed = discord.Embed(
         description= "✅ Stopped the music",
         color = discord.Color.green()
@@ -1218,9 +1241,7 @@ async def stop(interaction : discord.Interaction) -> None:
     playlistconfig["isplaying"] = False
     await KTtools.save_playlist(playlistconfig, server_id)
     
-
-
-@tree.command(name = "pause", description = "Pause the playlist")
+@tree.command(name = "pause", description = "Pause/resume the playing")
 async def pause(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
     voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
@@ -1244,6 +1265,14 @@ async def pause(interaction : discord.Interaction) -> None:
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
+    
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
     
     embed = discord.Embed(
         description= "✅ Stopped the music",
@@ -1284,6 +1313,14 @@ async def repeat(interaction : discord.Interaction) -> None:
         )
         return await interaction.response.send_message(embed = embed)
     
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
+    
     playlistconfig = await KTtools.load_playlist(server_id)
     playlistconfig["repeat"] = not playlistconfig["repeat"]
     await KTtools.save_playlist(playlistconfig, server_id)
@@ -1322,6 +1359,14 @@ async def shuffle(interaction : discord.Interaction) -> None:
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
+    
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
     
     playlistconfig = await KTtools.load_playlist(server_id)
     playlistconfig["shuffle"] = not playlistconfig["shuffle"]
@@ -1369,6 +1414,14 @@ async def nextc(interaction : discord.Interaction) -> None:
         )
         return await interaction.response.send_message(embed = embed)
 
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
+
     embed = discord.Embed(
         description= "✅ Playing next song.",
         color = discord.Color.green()
@@ -1392,6 +1445,45 @@ async def nextc(interaction : discord.Interaction) -> None:
         idxnext = randint(0, len(playlistconfig["playlist"])-1)
         playlistconfig["playlist"][0], playlistconfig["playlist"][idxnext] = playlistconfig["playlist"][idxnext], playlistconfig["playlist"][0]
         await KTtools.save_playlist(playlistconfig, server_id)
+
+@tree.command(name = "volume", description= "Set the bot's playing volume")
+async def volume(interaction : discord.Interaction, volume : int):
+    server_id = str(interaction.guild.id)
+    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+    playlistconfig = await KTtools.load_playlist(server_id)
+    
+    if not voice or not voice.is_connected():
+        embed = discord.Embed(
+            description= "❌ I am not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+        embed = discord.Embed(
+            description= "❌ You are not in my voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not playlistconfig["isplaying"]:
+        embed = discord.Embed(
+            description= "❌ I am not playing anything.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    
+    if volume <0 or volume > 100:
+        embed = discord.Embed(
+            description= "Volume must be between 0 and 100",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    
+    voice.source.volume = volume / 100
+    embed = discord.Embed(
+        description= f"✅ Volume set to {volume}%",
+        color = discord.Color.green()
+    )
+    await interaction.response.send_message(embed = embed)
 
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
