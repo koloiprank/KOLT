@@ -11,5 +11,6 @@ For your python modules, you will need to install all the requirements in requir
 ``` pip install -r requirements.txt ```  
 
 For the play command to work, you will need to install into the host machine FFmpeg.  
+
 If you are running linux use ``` sudo apt install ffmpeg ``` or any installation method variant (depending on your distribution).  
-For windows just [enter this link](https://ffmpeg.org/download.html) and download the latest version.
+If you are running windows, [enter this link](https://ffmpeg.org/download.html) and download the latest version.
