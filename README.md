@@ -2,21 +2,30 @@
 Base discord App(Bot) KOLT
 
 ### COMPLETED FEATURES
-1. Administrator / Moderator zone:
- - Welcomer
-  - Set welcome message type, channel and message/image/message and image
-  - Capability to test the welcome message
- - Autorole
-  - Roles on-join
-  - Roles on-react
- - Automod and Moderation
-  - Configurable Warn / Mute / Kick / Ban system with custom maximums
-  - Configurable banned words with cabailities to detect automod avoidance (i.e: Banned word Banana, B/ä-*nán==A is detected as Banana)
-  - Automatic warning / muting / kicking / banning system on banned word usage
-  - Capabilities to clear one / all punishments from a user
-  - Capabilities to clear all users from punishments
-  - Chat logging on console and command logging on file discord.log
- - Capabilities to reset all configurations (Welcomer, automod, autorole)
+<ul>
+    <li>1. Administrator / Moderator zone: </li>
+        <ul>
+            <li>Welcomer</li>
+                <ul>
+                    <li>Set welcome message type, channel and message/image/message and image</li>
+                    <li>Capability to test the welcome message</li>
+                </ul>
+            <li>Autorole</li>
+                <ul>
+                    <li>Roles on-join</li>
+                    <li>Roles on-react</li>
+                </ul>
+            <li>Automod and Moderation</li>
+                <ul>
+                    <li>Configurable Warn / Mute / Kick / Ban system with custom maximums</li>
+                    <li>Configurable banned words with cabailities to detect automod avoidance (i.e: Banned word Banana, B/ä-*nán==A is detected as Banana)</li>
+                    <li>Automatic warning / muting / kicking / banning system on banned word usage</li>
+                    <li>Capabilities to clear one / all punishments from a user</li>
+                    <li>Capabilities to clear all users from punishments</li>
+                    <li>Chat logging on console and command logging on file discord.log</li>
+                </ul>
+            <li>Capabilities to reset all configurations (Welcomer, automod, autorole)</li>
+</ul>
 2. Regular user zone:
  - Music playing
   - For all users:
