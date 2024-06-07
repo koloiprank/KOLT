@@ -209,7 +209,7 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
     
     return ct == len(permissions)
 
-async def create_playlist(server_id : str) -> None:
+def create_playlist(server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
@@ -219,14 +219,13 @@ async def create_playlist(server_id : str) -> None:
             playlist text,
             isplaying text,
             repeat text,
-            shuffle text,
-            volume integer)""")
+            shuffle text)""")
         connexion.commit()
     except Exception:
         ...
     
     try:
-        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}','[]', 'False', 'False', 'False', 100)")
+        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}','[]', 'False', 'False', 'False')")
         connexion.commit()
     except Exception:
         print("[DB.PLAYLIST.WARNING]>>>Could not insert into table, server_id already exists!!!")
@@ -238,7 +237,7 @@ async def load_playlist(server_id : str) -> dict:
     data = cursor.fetchone()
     connexion.close()
     
-    playlist_template = ["server_id", "playlist", "isplaying", "repeat", "shuffle", "volume"]
+    playlist_template = ["server_id", "playlist", "isplaying", "repeat", "shuffle"]
     return {playlist_template[i] : eval_no_error(data[i]) for i in range(len(playlist_template))}
 async def save_playlist(data : list, server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
@@ -249,9 +248,6 @@ async def save_playlist(data : list, server_id : str) -> None:
         connexion.commit()
     
     connexion.close()
-
-
-
 
 
 #DEV - DO NOT USE
@@ -274,4 +270,4 @@ def dropplaylist()-> None:
     connexion.close()
 
 if __name__ == "__main__":
-    resetplaylist()
+    ...

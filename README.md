@@ -3,7 +3,7 @@ Base discord App(Bot) KOLT
 
 ### COMPLETED FEATURES
 <ul>
-    <li><bold>1. Administrator / Moderator zone:</bold></li>
+    <li>1. Administrator / Moderator zone:</li>
         <ul>
             <li>Welcomer</li>
                 <ul>
@@ -26,7 +26,7 @@ Base discord App(Bot) KOLT
                 </ul>
             <li>Capabilities to reset all configurations (Welcomer, automod, autorole)</li>
         </ul>
-    <li><bold>2. Regular user zone</bold></li>
+    <li>2. Regular user zone</li>
         <ul>
             <li>Music playing</li>
                 <ul>

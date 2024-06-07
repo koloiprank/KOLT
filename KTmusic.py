@@ -5,6 +5,7 @@ from random import randint
 import asyncio
 from youtube_search import YoutubeSearch
 
+
 def searchyt(query : str) -> dict[str : str]:
     with YoutubeDL({"format": "bestaudio", "noplaylist" : "True"}) as ydl:
         try:
@@ -42,17 +43,13 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
 async def play_next(interaction : discord.Interaction, song : str) -> None:
     server_id = str(interaction.guild.id)
     playlistconfig = await KTtools.load_playlist(server_id)
-    
     playlistconfig["isplaying"] = True
-    await KTtools.save_playlist(playlistconfig, server_id)
     playing = searchyt(playlistconfig["playlist"][0])
         
-    try:
+    if playing:
         #Create embed
         embed = create_playlist_embed(playlistconfig)
         await interaction.channel.send(embed = embed)
-        
-        await KTtools.save_playlist(playlistconfig, server_id)
         musicurl = playing["source"]
         
         #Play
@@ -66,15 +63,15 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
         playlistconfig = await KTtools.load_playlist(server_id)
         if not playlistconfig["repeat"] and len(playlistconfig["playlist"]) != 0:
             playlistconfig["playlist"].remove(song) if song in playlistconfig["playlist"] else playlistconfig["playlist"]
-            await KTtools.save_playlist(playlistconfig, server_id)
         else:
             if len(playlistconfig["playlist"]) != 0 and song in playlistconfig["playlist"]:
                 new_playlist = playlistconfig["playlist"]
                 new_playlist.append(song)
                 new_playlist.remove(song)
                 playlistconfig["playlist"] = new_playlist
-                await KTtools.save_playlist(playlistconfig, server_id)
-    except Exception:
+        
+        await KTtools.save_playlist(playlistconfig, server_id)
+    else:
         embed = discord.Embed(
             description= f"❌ I couldn't find and play **{song}**\nDeleting from playlist, you may retry again",
             color = discord.Color.red()
@@ -90,13 +87,9 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
             await play_next(interaction, playlistconfig["playlist"][0])
         else:
             idxnext = randint(0, len(playlistconfig["playlist"])-1)
-            playlistconfig["playlist"][0], playlistconfig["playlist"][idxnext] = playlistconfig["playlist"][idxnext], playlistconfig["playlist"][0]
-            await KTtools.save_playlist(playlistconfig, server_id)
-            
-            playlistconfig = await KTtools.load_playlist(server_id)
-            await play_next(interaction, playlistconfig["playlist"][0])
+            await play_next(interaction, playlistconfig["playlist"][idxnext])
     else:
-        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False", "volume": 100}, server_id)
+        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False", "next_song": ""}, server_id)
         embed = discord.Embed(
             description= "Playlist finished!",
             color = discord.Color.dark_purple()

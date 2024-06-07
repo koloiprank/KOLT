@@ -1195,8 +1195,10 @@ async def play(interaction : discord.Interaction, song : str) -> None:
     
     if not playlistconfig["isplaying"]:
         try:
-            await asyncio.to_thread(await KTmusic.play_next(interaction, song))
-        except Exception: ...
+            playlistconfig["isplaying"] = True
+            await KTtools.save_playlist(playlistconfig, server_id)
+            await KTmusic.play_next(interaction, song)
+        except Exception: ... 
 
 @tree.command(name = "stop", description = "Stop playing music and clear playlist")
 async def stop(interaction : discord.Interaction) -> None:
@@ -1425,7 +1427,7 @@ async def nextc(interaction : discord.Interaction) -> None:
             return await interaction.response.send_message(embed = embed, ephemeral=True) """
 
     embed = discord.Embed(
-        description= "✅ Playing next song.",
+        description= "✅ Loading next song...",
         color = discord.Color.green()
     )
     await interaction.response.send_message(embed = embed)
