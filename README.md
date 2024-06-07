@@ -25,20 +25,29 @@ Base discord App(Bot) KOLT
                     <li>Chat logging on console and command logging on file discord.log</li>
                 </ul>
             <li>Capabilities to reset all configurations (Welcomer, automod, autorole)</li>
+        </ul>
+    <li>Regular user zone</li>
+        <ul>
+            <li>Music playing</li>
+                <ul>
+                    <li>For all users:</li>
+                        <ul>
+                            <li>Connect / disconnect command (Needed to play music)</li>
+                            <li>move command to move the bot from one channel to another</li>
+                            <li>Play to play/queue a song</li>
+                            <li>Playlist command to show the current playlist (User doesn't need to be connected to use)</li>
+                        </ul>
+                    <li>For administrators / DJ role:</li>
+                        <ul>
+                            <li>Toggleable playlist Repeat / Shuffle</li>
+                            <li>Pause command to pause the music</li>
+                            <li>stop command to stop the music</li>
+                            <li>rmsong to remove a specific song</li>
+                            <li>forcedisconnect to force the bot to disconnect and clear the playlist configuration</li>
+                        </ul>
+                </ul>
+        </ul>
 </ul>
-2. Regular user zone:
- - Music playing
-  - For all users:
-    - Connect / disconnect command (Needed to play music)
-    - move command to move the bot from one channel to another
-    - Play to play/queue a song
-    - Playlist command to show the current playlist (User doesn't need to be connected to use)
-  - For administrators / DJ role:
-   - Toggleable playlist Repeat / Shuffle
-   - Pause command to pause the music
-   - stop command to stop the music
-   - rmsong to remove a specific song
-   - forcedisconnect to force the bot to disconnect and clear the playlist configuration
 
 
  
