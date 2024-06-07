@@ -8,6 +8,7 @@ def eval_no_error(data : str) -> dict | list:
     except Exception:
         return data
 #!REDUNTANT! USE os.path.exists(file)
+#TODO replace all find_file with os.path.exists()
 def find_file(filename : str, path : str) -> str:
     for root, dirs, files in os.walk(path):
         if filename in files:
