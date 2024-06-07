@@ -17,6 +17,28 @@ def searchyt(query : str) -> dict[str : str]:
 def get_youtube_search_info(query : str) -> dict[str : str]:
     return YoutubeSearch(query, max_results=1).to_dict()[0]
 
+def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
+    upnext_playlist = ""
+    for idx in range(1, 12):
+        if idx != 11:
+            try:
+                upnext_playlist += f"- **{idx}.** {playlistconfig['playlist'][idx]}\n"
+            except Exception:
+                break
+        elif idx == 11:
+            upnext_playlist += "And more..."
+    
+    embed = discord.Embed(
+        title = "**CURRENTLY PLAYING**",
+        description = f"### **Now playing:**\n{playlistconfig['playlist'][0]}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
+        color = discord.Color.dark_purple(),
+        url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
+    )
+    embed.set_footer(text = f"Repeat: {'on' if playlistconfig['repeat'] else 'off'}\nShuffle: {'on' if playlistconfig['shuffle'] else 'off'}")
+    embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][1])
+    
+    return embed
+
 async def play_next(interaction : discord.Interaction, song : str) -> None:
     server_id = str(interaction.guild.id)
     playlistconfig = await KTtools.load_playlist(server_id)
@@ -26,32 +48,20 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
     playing = searchyt(playlistconfig["playlist"][0])
         
     try:
-        upnext_playlist = ""
-        for idx in range(1, 12):
-            if idx != 11:
-                try:
-                    upnext_playlist += f"- **{idx}.** {get_youtube_search_info(playlistconfig['playlist'][idx])['title']}\n"
-                except Exception:
-                    break
-            elif idx == 11:
-                upnext_playlist += "And more..."
-        embed = discord.Embed(
-            title = "**CURRENTLY PLAYING**",
-            description = f"### **Now playing:**\n{playing['title']}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
-            color = discord.Color.dark_purple(),
-            url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
-        )
-        embed.set_footer(text = f"Repeat: {'on' if playlistconfig['repeat'] else 'off'}\nShuffle: {'on' if playlistconfig['shuffle'] else 'off'}")
-        embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][1])
+        #Create embed
+        embed = create_playlist_embed(playlistconfig)
         await interaction.channel.send(embed = embed)
         
         await KTtools.save_playlist(playlistconfig, server_id)
         musicurl = playing["source"]
-
+        
+        #Play
         interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
+        
         #Wait for end
         while interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
             await asyncio.sleep(1)
+        
         #Repeat check
         playlistconfig = await KTtools.load_playlist(server_id)
         if not playlistconfig["repeat"] and len(playlistconfig["playlist"]) != 0:
@@ -86,7 +96,7 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
             playlistconfig = await KTtools.load_playlist(server_id)
             await play_next(interaction, playlistconfig["playlist"][0])
     else:
-        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False"}, server_id)
+        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False", "volume": 100}, server_id)
         embed = discord.Embed(
             description= "Playlist finished!",
             color = discord.Color.dark_purple()

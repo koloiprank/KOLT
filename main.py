@@ -1185,16 +1185,18 @@ async def play(interaction : discord.Interaction, song : str) -> None:
         return await interaction.response.send_message(embed = embed)
 
     embed = discord.Embed(
-        description= f"✅ Added **{song}** to playlist.",
+        description= f"✅ Added **{KTmusic.get_youtube_search_info(song)['title']}** to playlist.",
         color = discord.Color.green()
         )
     await interaction.response.send_message(embed = embed)
     
-    playlistconfig["playlist"].append(song)
+    playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(song)['title'])
     await KTtools.save_playlist(playlistconfig, server_id)
     
     if not playlistconfig["isplaying"]:
-        await asyncio.to_thread(await KTmusic.play_next(interaction, song))
+        try:
+            await asyncio.to_thread(await KTmusic.play_next(interaction, song))
+        except Exception: ...
 
 @tree.command(name = "stop", description = "Stop playing music and clear playlist")
 async def stop(interaction : discord.Interaction) -> None:
@@ -1446,13 +1448,18 @@ async def nextc(interaction : discord.Interaction) -> None:
         playlistconfig["playlist"][0], playlistconfig["playlist"][idxnext] = playlistconfig["playlist"][idxnext], playlistconfig["playlist"][0]
         await KTtools.save_playlist(playlistconfig, server_id)
 
-@tree.command(name = "volume", description= "Set the bot's playing volume")
-async def volume(interaction : discord.Interaction, volume : int):
+@tree.command(name = "rmsong", description = "Remove a song from the playlist")
+async def rmsong(interaction : discord.Interaction, song : str) -> None:
     server_id = str(interaction.guild.id)
-    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
     playlistconfig = await KTtools.load_playlist(server_id)
     
-    if not voice or not voice.is_connected():
+    if not interaction.user.voice:
+        embed = discord.Embed(
+            description= "❌ You are not connected to a voice channel.",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    elif not interaction.guild.me.voice:
         embed = discord.Embed(
             description= "❌ I am not connected to a voice channel.",
             color = discord.Color.red()
@@ -1464,27 +1471,46 @@ async def volume(interaction : discord.Interaction, volume : int):
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
-    elif not playlistconfig["isplaying"]:
+    
+    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            embed = discord.Embed(
+                description= "You need to have the 'DJ' role or be an admin to use this command!",
+                color = discord.Color.dark_purple()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True) """
+    
+    if KTmusic.get_youtube_search_info(song)["title"] not in playlistconfig["playlist"]:
         embed = discord.Embed(
-            description= "❌ I am not playing anything.",
+            description = f"❌ **{song}** is not in the playlist",
             color = discord.Color.red()
         )
         return await interaction.response.send_message(embed = embed)
+
+    playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(song)["title"])
+    await KTtools.save_playlist(playlistconfig, server_id)
     
-    if volume <0 or volume > 100:
-        embed = discord.Embed(
-            description= "Volume must be between 0 and 100",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    voice.source.volume = volume / 100
     embed = discord.Embed(
-        description= f"✅ Volume set to {volume}%",
-        color = discord.Color.green()
+        description = f"Removed **{song}** from the playlist",
+        color = discord.Color.dark_purple()
     )
     await interaction.response.send_message(embed = embed)
 
+@tree.command(name = "playlist", description = "Show the current playlist")
+async def playlist(interaction : discord.Interaction) -> None:
+    server_id = str(interaction.guild.id)
+    playlistconfig = await KTtools.load_playlist(server_id)
+    
+    if not playlistconfig["isplaying"]:
+        embed = discord.embed(
+            description = "❌ I am not playing anything",
+            color = discord.Color.red()
+        )
+        return await interaction.response.send_message(embed = embed)
+    
+    embed = KTmusic.create_playlist_embed(playlistconfig)
+    await interaction.response.send_message(embed = embed)
+    
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 @client.event
