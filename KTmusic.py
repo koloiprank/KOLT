@@ -36,8 +36,9 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
         url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
     )
     embed.set_footer(text = f"Repeat: {'on' if playlistconfig['repeat'] else 'off'}\nShuffle: {'on' if playlistconfig['shuffle'] else 'off'}")
-    embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][1])
-    
+    try:
+        embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][0])
+    except Exception: ...
     return embed
 
 async def play_next(interaction : discord.Interaction, song : str) -> None:
@@ -61,13 +62,16 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
         
         #Repeat check
         playlistconfig = await KTtools.load_playlist(server_id)
-        if not playlistconfig["repeat"] and len(playlistconfig["playlist"]) != 0:
-            playlistconfig["playlist"].remove(song) if song in playlistconfig["playlist"] else playlistconfig["playlist"]
+        if not playlistconfig["repeat"]:
+            try:
+                playlistconfig["playlist"].remove(song)
+            except Exception:...
         else:
             if len(playlistconfig["playlist"]) != 0 and song in playlistconfig["playlist"]:
                 new_playlist = playlistconfig["playlist"]
                 new_playlist.append(song)
                 new_playlist.remove(song)
+                
                 playlistconfig["playlist"] = new_playlist
         
         await KTtools.save_playlist(playlistconfig, server_id)

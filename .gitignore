@@ -1,3 +1,5 @@
 .gitignore
 .env
 discord.log
+reset_config_playlist.py
+scripts
