@@ -55,13 +55,10 @@ async def play_next(interaction : discord.Interaction, song : str) -> None:
         
         #Play
         interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
-        
         #Wait for end
         while interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
             await asyncio.sleep(1)
-        
         #Repeat check
-        playlistconfig = await KTtools.load_playlist(server_id)
         if not playlistconfig["repeat"]:
             try:
                 playlistconfig["playlist"].remove(song)
