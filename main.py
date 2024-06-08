@@ -19,6 +19,7 @@ import KTtools
 import KTautorole
 import KTmoderation
 import KTmusic
+from reset_config_playlist import reset_all_playlists
 
 #!TOKEN
 load_dotenv()
@@ -1525,5 +1526,7 @@ async def on_ready() -> None:
 #!MAIN
 def main() -> None:
     client.run(token = TOKEN, log_handler=handler, root_logger=True)
+
 if __name__ == "__main__":
+    asyncio.run(reset_all_playlists())
     main()
