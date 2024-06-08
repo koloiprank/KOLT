@@ -1084,6 +1084,7 @@ async def disconnect(interaction : discord.Interaction) -> None:
         )
         return await interaction.response.send_message(embed = embed)
 
+    await voice.cleanup()
     await voice.disconnect()
     embed = discord.Embed(
         description= "✅ Disconnected from voice channel.",
@@ -1103,8 +1104,9 @@ async def forcedisconnect(interaction : discord.Interaction) -> None:
     
     voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
     if voice and voice.is_connected():
-        await voice.disconnect()
         await stop(interaction)
+        await voice.cleanup()
+        await voice.disconnect()
         embed = discord.Embed(
             description= "✅ Disconnected from voice channel.",
             color = discord.Color.green()
@@ -1198,7 +1200,7 @@ async def play(interaction : discord.Interaction, song : str) -> None:
         try:
             playlistconfig["isplaying"] = True
             await KTtools.save_playlist(playlistconfig, server_id)
-            await KTmusic.play_next(interaction, song)
+            await KTmusic.play_next(interaction, KTmusic.get_youtube_search_info(song)['title'])
         except Exception: ... 
 
 @tree.command(name = "stop", description = "Stop playing music and clear playlist")
@@ -1290,11 +1292,6 @@ async def pause(interaction : discord.Interaction) -> None:
     else:
         interaction.guild.voice_client.resume()
         
-    playlistconfig = await KTtools.load_playlist(server_id)
-    playlistconfig["playlist"] = []
-    playlistconfig["isplaying"] = False
-    await KTtools.save_playlist(playlistconfig, server_id)
-
 @tree.command(name = "repeat", description = "Toggle repeat on/off")
 async def repeat(interaction : discord.Interaction) -> None:
     server_id = str(interaction.guild.id)
@@ -1332,13 +1329,13 @@ async def repeat(interaction : discord.Interaction) -> None:
     
     if playlistconfig["repeat"]:
         embed = discord.Embed(
-            description= "✅ Repeat is now on.",
+            description= "### Repeat ON",
             color = discord.Color.green()
         )
     else:
         embed = discord.Embed(
-            description= "✅ Repeat is now off.",
-            color = discord.Color.green()
+            description= "### Repeat OFF",
+            color = discord.Color.red()
         )
     await interaction.response.send_message(embed = embed)
 
@@ -1379,13 +1376,13 @@ async def shuffle(interaction : discord.Interaction) -> None:
     
     if playlistconfig["shuffle"]:
         embed = discord.Embed(
-            description= "✅ Shuffle is now on.",
+            description= "### Shuffle ON",
             color = discord.Color.green()
         )
     else:
         embed = discord.Embed(
-            description= "✅ Shuffle is now off.",
-            color = discord.Color.green()
+            description= "### Shuffle OFF",
+            color = discord.Color.red()
         )
     await interaction.response.send_message(embed = embed)
 
@@ -1440,10 +1437,9 @@ async def nextc(interaction : discord.Interaction) -> None:
         playingsong = playlistconfig["playlist"][0]
         playlistconfig["playlist"].append(playingsong)
         playlistconfig["playlist"].remove(playingsong)
-        await KTtools.save_playlist(playlistconfig, str(interaction.guild.id))
     else:
-        playlistconfig["playlist"].pop(0)
-        await KTtools.save_playlist(playlistconfig, str(interaction.guild.id))
+        playlistconfig["playlist"].remove(playingsong)
+    await KTtools.save_playlist(playlistconfig, str(interaction.guild.id))
     
     playlistconfig = await KTtools.load_playlist(server_id)
     if playlistconfig["shuffle"]:
@@ -1505,7 +1501,7 @@ async def playlist(interaction : discord.Interaction) -> None:
     playlistconfig = await KTtools.load_playlist(server_id)
     
     if not playlistconfig["isplaying"]:
-        embed = discord.embed(
+        embed = discord.Embed(
             description = "❌ I am not playing anything",
             color = discord.Color.red()
         )
@@ -1520,7 +1516,6 @@ handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'
 async def on_ready() -> None:
     await tree.sync()
     print(f"{client.user} working")
-
 
 
 #!MAIN

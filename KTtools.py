@@ -209,7 +209,7 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
     
     return ct == len(permissions)
 
-def create_playlist(server_id : str) -> None:
+async def create_playlist(server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
