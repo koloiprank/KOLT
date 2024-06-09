@@ -2,6 +2,7 @@
 #*Discord
 import discord
 from discord import Intents, Client, app_commands
+from discord.ext import commands, tasks
 
 #*OS+tools
 from typing import Final
@@ -24,10 +25,10 @@ from reset_config_playlist import reset_all_playlists
 #!TOKEN
 load_dotenv()
 TOKEN : Final[str] = os.getenv('DISCORD_TOKEN')
+intents = Intents.all()
+client = commands.Bot(command_prefix = "/" ,intents = intents)
+#tree = app_commands.CommandTree(client)
 
-intents : Intents = Intents.all()
-client : Client = Client(intents = intents)
-tree = app_commands.CommandTree(client)
 
 #!FUNC
 #*On first join
@@ -48,8 +49,6 @@ async def on_guild_join(guild):
     
     global banned_words_per_server
     banned_words_per_server = KTtools.get_banned_words_per_server()
-
-
 
 #*Chat logging + Automod
 if os.path.exists("configs.db"):
@@ -127,9 +126,7 @@ async def on_message(message: discord.Message):
                     await channel.send(embed = embed)
                     await member.ban(reason="Using one/various banned word/s after reaching max warns, max mutes and max kicks")
 
-
-
-#*Autorole On-react
+#*React event
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     user = payload.member
@@ -142,7 +139,6 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         if not user.bot:
             await user.add_roles(discord.Object(id = role))
             print(f"{user} has been given the role {role} from reaction {reaction}")
-
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     guild_id = payload.guild_id
@@ -159,9 +155,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
             await user.remove_roles(discord.Object(id = role))
             print(f"{user} has been cleared of the role {role} from reaction {reaction}")
  
-
-
-#*Welcome
+#*Member join event  
 @client.event
 async def on_member_join(member: discord.Member):
     config = await KTtools.load_config(str(member.guild.id))
@@ -214,257 +208,125 @@ async def on_member_join(member: discord.Member):
     role_list = config["onjoin_roles"]
     for role in role_list:
         await member.add_roles(discord.Object(role))
-        
-@tree.command(name = "setwelcomechannel", description = "Opens a dropdown menu to set your automatic welcome and goodbye channel")
-async def set_welcome_channel(interaction : discord.Interaction) -> None:
-    
-    permissions = ["manage_channels", "manage_messages"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    
-    if has_perms:
-        await KTwelcome.select_welcome_channel(interaction)
-    else:
-        embed = discord.Embed(
-            description = "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "setwelcome", description= "Opens an embed with buttons to set your automatic welcome and goodbye message")
-async def set_welcome_message(interaction : discord.Interaction) -> None:
-    permissions = ["manage_channels", "manage_messages"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+#*Cogs
+class Welcomer(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.client.tree.sync()
+        print(f"{client.user} working")
+    @commands.command()
+    async def syncWelcome(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Synced Welcomer with {len(self.client.commands)} commands")
     
-    if has_perms:
-        await KTwelcome.select_welcome(interaction)
-    else:
-        embed = discord.Embed(
-            description = "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "testwelcome", description = "Test the welcome message")
-async def testwelcome(interaction : discord.Interaction) -> None:
-    
-    permissions = ["manage_channels", "manage_messages"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    
-    if has_perms:
-        config = await KTtools.load_config(str(interaction.guild.id))
+ 
+    @app_commands.command(name = "setwelcomechannel", description = "Opens a dropdown menu to set your automatic welcome and goodbye channel")
+    async def set_welcome_channel(self, interaction : discord.Interaction) -> None:
         
-        try: 
-            interaction.guild.get_channel(int(config["welcome_channel"]))
-        except Exception:
+        permissions = ["manage_channels", "manage_messages"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            await KTwelcome.select_welcome_channel(interaction)
+        else:
             embed = discord.Embed(
-                description = "❌ Welcome channel not set.",
+                description = "❌ You don't have permission to use this command.",
                 color = discord.Color.red()
             )
             await interaction.response.send_message(embed = embed, ephemeral=True)
-            return
-        
-        if config["welcome_type"] == "message":
-            
-            embed = discord.Embed(
-                title="**WELCOME!!**",
-                description= await KTwelcome.create_welcome_message(interaction.user, config),
-                color=discord.Color.dark_gold()
-            )
-            
-            await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
-            await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
 
-        elif config["welcome_type"] == "image":
+    @app_commands.command(name = "setwelcome", description= "Opens an embed with buttons to set your automatic welcome and goodbye message")
+    async def set_welcome_message(self, interaction : discord.Interaction) -> None:
+        permissions = ["manage_channels", "manage_messages"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            await KTwelcome.select_welcome(interaction)
+        else:
+            embed = discord.Embed(
+                description = "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "testwelcome", description = "Test the welcome message")
+    async def testwelcome(self, interaction : discord.Interaction) -> None:
+        permissions = ["manage_channels", "manage_messages"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            config = await KTtools.load_config(str(interaction.guild.id))
             
-            if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
+            try: 
+                interaction.guild.get_channel(int(config["welcome_channel"]))
+            except Exception:
+                embed = discord.Embed(
+                    description = "❌ Welcome channel not set.",
+                    color = discord.Color.red()
+                )
+                await interaction.response.send_message(embed = embed, ephemeral=True)
+                return
+            
+            if config["welcome_type"] == "message":
+                
+                embed = discord.Embed(
+                    title="**WELCOME!!**",
+                    description= await KTwelcome.create_welcome_message(interaction.user, config),
+                    color=discord.Color.dark_gold()
+                )
                 
                 await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
-                await interaction.guild.get_channel(int(config["welcome_channel"])).send(file = await KTwelcome.create_welcome_image(interaction.user, config))
-            
-            else:
-                
-                embed = discord.Embed(
-                description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
-                colour = discord.Color.red()
-                )
-                
-                await interaction.response.send_message("ERROR", ephemeral = True)
                 await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
 
-        elif config["welcome_type"] == "both":
-            
-            embed = discord.Embed(
-                title="**WELCOME!!**",
-                description= str(await KTwelcome.create_welcome_message(interaction.user, config)),
-                color=discord.Color.dark_gold()
-            )
-            
-            await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
-            await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
-            
-            if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
+            elif config["welcome_type"] == "image":
                 
-                await interaction.guild.get_channel(int(config["welcome_channel"])).send(file = await KTwelcome.create_welcome_image(interaction.user, config))
-            
-            else:
+                if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
+                    
+                    await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
+                    await interaction.guild.get_channel(int(config["welcome_channel"])).send(file = await KTwelcome.create_welcome_image(interaction.user, config))
+                
+                else:
+                    
+                    embed = discord.Embed(
+                    description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
+                    colour = discord.Color.red()
+                    )
+                    
+                    await interaction.response.send_message("ERROR", ephemeral = True)
+                    await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
+
+            elif config["welcome_type"] == "both":
                 
                 embed = discord.Embed(
-                description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
-                colour = discord.Color.red()
+                    title="**WELCOME!!**",
+                    description= str(await KTwelcome.create_welcome_message(interaction.user, config)),
+                    color=discord.Color.dark_gold()
                 )
-            
+                
+                await interaction.response.send_message("Done!\nCheck the set welcome channel.", ephemeral = True)
                 await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
-    else:
-        embed = discord.Embed(
-            description = "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-
-
-#*Autorole 
-@tree.command(name = "addautorolechannel", description= "Adds the channel to the autorole list. Allows autorole react to work here.")
-async def addautorolechannel(interaction : discord.Interaction) -> None:
-    
-    permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    
-    if has_perms:
-        config = await KTtools.load_config(str(interaction.guild.id))
-        
-        if str(interaction.channel.id) not in config["autorole_channels"]:
-            config["autorole_channels"].append(str(interaction.channel.id))
-            await KTtools.save_config(config, str(interaction.guild.id))
-
-            embed = discord.Embed(
-                title = "Channel added",
-                description = f"✅Added {interaction.channel.mention} to autorole list",
-                color = discord.Color.green()
-            )
-            await interaction.response.send_message(embed = embed, ephemeral=True)
+                
+                if await KTwelcome.create_welcome_image(interaction.user, config) is not None:
+                    
+                    await interaction.guild.get_channel(int(config["welcome_channel"])).send(file = await KTwelcome.create_welcome_image(interaction.user, config))
+                
+                else:
+                    
+                    embed = discord.Embed(
+                    description= "❌ Couldn't send image.\nTry checking the image link is valid and setting it up again with /setwelcome .",
+                    colour = discord.Color.red()
+                    )
+                
+                    await interaction.guild.get_channel(int(config["welcome_channel"])).send(embed = embed)
         else:
             embed = discord.Embed(
-                description= "❌ This channel is already in the autorole list.",
+                description = "❌ You don't have permission to use this command.",
                 color = discord.Color.red()
             )
             await interaction.response.send_message(embed = embed, ephemeral=True)
-    
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-    
-@tree.command(name = "removeautorolechannel", description= "Removes the channel from the autorole-allowed channel list")
-async def removeautorolechannel(interaction : discord.Interaction) -> None:
-    
-    permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    
-    if has_perms:
-        config = await KTtools.load_config(str(interaction.guild.id))
 
-        if str(interaction.channel.id) in config["autorole_channels"]:
-            
-            config["autorole_channels"].remove(str(interaction.channel.id))
-            await KTtools.save_config(config, str(interaction.guild.id))
-            
-            embed = discord.Embed(
-                title = "Channel removed",
-                description = f"✅Removed {interaction.channel.mention} from autorole list",
-                color = discord.Color.green()
-            )
-            await interaction.response.send_message(embed = embed, ephemeral=True)
-        
-        else:
-            embed = discord.Embed(
-                title = "Channel removed",
-                description = f"❌{interaction.channel.mention} not in autorole list!",
-                color = discord.Color.green()
-            )
-            await interaction.response.send_message(embed = embed, ephemeral=True)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "autoroleonjoin", description= "Opens an embed with a dropdown to select automatic roles upon joining")
-async def autoroleonjoin(interaction : discord.Interaction) -> None:
-    
-    permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    
-    if has_perms:
-        await KTautorole.automatic_onjoin(interaction)
-    else:
-        embed = discord.Embed(
-            description = "❌ You don't have permission to use this command.",  
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "autoroleonreact", description= "Reacts to the **LAST MESSAGE ON CHANNEL**. Sets roles for an emoji react.")
-async def autoroleonreact(interaction : discord.Interaction, emoji : str, role : str) -> None:
-    
-    permissions = ["manage_channels", "manage_messages", "manage_roles"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    config = await KTtools.load_config(str(interaction.guild.id))
-    
-    if has_perms:
-        messageID = interaction.channel.last_message_id
-        
-        try:
-            message = await interaction.channel.fetch_message(messageID)
-        except Exception:
-            embed = discord.Embed(
-                description= "❌ Message error. Try deleting and sending a new message.",
-                color=discord.Color.red())
-            
-            await interaction.response.send_message(embed = embed, ephemeral = True)
-            return
-
-        if "<@" in str(role) and str(role).strip("<@&>") not in [str(member.id) for member in interaction.guild.members]:
-            
-            if str(interaction.channel_id) in config["autorole_channels"]:
-                try:
-                    await message.add_reaction(emoji)
-                except Exception:
-                    
-                    embed = discord.Embed(
-                        description= "❌ Invalid emoji!",
-                        color=discord.Color.red()
-                        )
-                    await interaction.response.send_message(embed = embed, ephemeral = True)
-                    return
-
-                config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")
-                await KTtools.save_config(config, str(interaction.guild.id))
-                await interaction.response.send_message("Done!", ephemeral = True)
-            else:
-                embed = discord.Embed(
-                    description= "❌ This channel is not in autorole list.\nUse **/addautorolechannel** to add it, then try again.",
-                    color=discord.Color.red()
-                    )
-                await interaction.response.send_message(embed = embed, ephemeral = True)
-        else:
-            embed = discord.Embed(
-            description= "❌ Invalid role!",
-            color=discord.Color.red())
-            await interaction.response.send_message(embed = embed, ephemeral = True)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-
-
-#*Moderation
 async def is_member_punishable(interaction : discord.Interaction, member : discord.Member, mode : str) -> bool:
     
     if str(member.id) == str(interaction.user.id):
@@ -518,1003 +380,1186 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
         return False
     
     return True
-
-#Warns
-@tree.command(name = "warn", description= "Warns a user")
-async def warn(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
-    
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "warn"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.warn(interaction, member, reason)
-            else:
-                await KTmoderation.warn(interaction, member, reason)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "removewarn", description= "Removes 1 warn from a user")
-async def removewarn(interaction : discord.Interaction, member : discord.Member) -> None:
-    
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "warn/unwarn"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.remove_warn(interaction, member,)
-            else:
-                await KTmoderation.remove_warn(interaction, member)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "removeallwarns", description= "Removes all warn counts from a user")
-async def removeallwarns(interaction : discord.Interaction, member : discord.Member) -> None:
-    
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
+class Autorole(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.client.tree.sync()
+        print(f"{client.user} working")
+    @commands.command()
+    async def syncAutorole(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Synced Autorole with {len(self.client.commands)} commands")
         
-        if await is_member_punishable(interaction, member, "warn/unwarn"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.remove_all_warns(interaction, member,)
+    @app_commands.command(name = "addautorolechannel", description= "Adds the channel to the autorole list. Allows autorole react to work here.")
+    async def addautorolechannel(self, interaction : discord.Interaction) -> None:
+        
+        permissions = ["manage_channels", "manage_messages", "manage_roles"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            config = await KTtools.load_config(str(interaction.guild.id))
+            
+            if str(interaction.channel.id) not in config["autorole_channels"]:
+                config["autorole_channels"].append(str(interaction.channel.id))
+                await KTtools.save_config(config, str(interaction.guild.id))
+
+                embed = discord.Embed(
+                    title = "Channel added",
+                    description = f"✅Added {interaction.channel.mention} to autorole list",
+                    color = discord.Color.green()
+                )
+                await interaction.response.send_message(embed = embed, ephemeral=True)
             else:
-                await KTmoderation.remove_all_warns(interaction, member)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-#Mutes
-@tree.command(name = "mute", description= "Mutes a user for x minutes")
-async def mute(interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
-    
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "mute/unmute"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.mute(interaction, member, reason, duration)
-            else:
-                await KTmoderation.mute(interaction, member, reason, duration)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "unmute", description= "Unmutes a user")
-async def unmute(interaction : discord.Interaction, member : discord.Member) -> None:
-
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "mute/unmute"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.unmute(interaction, member)
-            else:
-                await KTmoderation.unmute(interaction, member)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "removemute", description= "Removes 1 mute count from a user, does NOT unmute")
-async def removemute(interaction : discord.Interaction, member : discord.Member) -> None:
-    
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "mute/unmute"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.remove_mute(interaction, member)
-            else:
-                await KTmoderation.remove_mute(interaction, member)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "removeallmutes", description= "Removes all mute counts from a user, does NOT unmute")
-async def removeallmutes(interaction : discord.Interaction, member : discord.Member) -> None:
-    
-    permissions = ["moderate_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "mute/unmute"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.remove_all_mutes(interaction, member)
-            else:
-                await KTmoderation.remove_all_mutes(interaction, member)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-#Kicks
-@tree.command(name = "kick", description= "Kicks a user")
-async def kick(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
-
-    permissions = ["kick_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "kick"):
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.kick(interaction, member, reason) 
-            else:
-                await KTmoderation.kick(interaction, member, reason)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "removekick", description= "Removes 1 kick count from a user, does NOT kick")
-async def removekick(interaction : discord.Interaction, member : discord.Member) -> None:
-    
-    permissions = ["kick_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "kick"):
+                embed = discord.Embed(
+                    description= "❌ This channel is already in the autorole list.",
+                    color = discord.Color.red()
+                )
+                await interaction.response.send_message(embed = embed, ephemeral=True)
+        
+        else:
             embed = discord.Embed(
-                description= f"✅ {member.mention} has been cleared of 1 kick count.",
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+        
+    @app_commands.command(name = "removeautorolechannel", description= "Removes the channel from the autorole-allowed channel list")
+    async def removeautorolechannel(self, interaction : discord.Interaction) -> None:
+        
+        permissions = ["manage_channels", "manage_messages", "manage_roles"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            config = await KTtools.load_config(str(interaction.guild.id))
+
+            if str(interaction.channel.id) in config["autorole_channels"]:
+                
+                config["autorole_channels"].remove(str(interaction.channel.id))
+                await KTtools.save_config(config, str(interaction.guild.id))
+                
+                embed = discord.Embed(
+                    title = "Channel removed",
+                    description = f"✅Removed {interaction.channel.mention} from autorole list",
+                    color = discord.Color.green()
+                )
+                await interaction.response.send_message(embed = embed, ephemeral=True)
+            
+            else:
+                embed = discord.Embed(
+                    title = "Channel removed",
+                    description = f"❌{interaction.channel.mention} not in autorole list!",
+                    color = discord.Color.green()
+                )
+                await interaction.response.send_message(embed = embed, ephemeral=True)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "autoroleonjoin", description= "Opens an embed with a dropdown to select automatic roles upon joining")
+    async def autoroleonjoin(self, interaction : discord.Interaction) -> None:
+        
+        permissions = ["manage_channels", "manage_messages", "manage_roles"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            await KTautorole.automatic_onjoin(interaction)
+        else:
+            embed = discord.Embed(
+                description = "❌ You don't have permission to use this command.",  
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "autoroleonreact", description= "Reacts to the **LAST MESSAGE ON CHANNEL**. Sets roles for an emoji react.")
+    async def autoroleonreact(self, interaction : discord.Interaction, emoji : str, role : str) -> None:
+        
+        permissions = ["manage_channels", "manage_messages", "manage_roles"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        config = await KTtools.load_config(str(interaction.guild.id))
+        
+        if has_perms:
+            messageID = interaction.channel.last_message_id
+            
+            try:
+                message = await interaction.channel.fetch_message(messageID)
+            except Exception:
+                embed = discord.Embed(
+                    description= "❌ Message error. Try deleting and sending a new message.",
+                    color=discord.Color.red())
+                
+                await interaction.response.send_message(embed = embed, ephemeral = True)
+                return
+
+            if "<@" in str(role) and str(role).strip("<@&>") not in [str(member.id) for member in interaction.guild.members]:
+                
+                if str(interaction.channel_id) in config["autorole_channels"]:
+                    try:
+                        await message.add_reaction(emoji)
+                    except Exception:
+                        
+                        embed = discord.Embed(
+                            description= "❌ Invalid emoji!",
+                            color=discord.Color.red()
+                            )
+                        await interaction.response.send_message(embed = embed, ephemeral = True)
+                        return
+
+                    config["react_roles"][await KTtools.format_emoji(str(emoji))] = str(role).strip("<@&>")
+                    await KTtools.save_config(config, str(interaction.guild.id))
+                    await interaction.response.send_message("Done!", ephemeral = True)
+                else:
+                    embed = discord.Embed(
+                        description= "❌ This channel is not in autorole list.\nUse **/addautorolechannel** to add it, then try again.",
+                        color=discord.Color.red()
+                        )
+                    await interaction.response.send_message(embed = embed, ephemeral = True)
+            else:
+                embed = discord.Embed(
+                description= "❌ Invalid role!",
+                color=discord.Color.red())
+                await interaction.response.send_message(embed = embed, ephemeral = True)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+class Automod(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.client.tree.sync()
+        print(f"{client.user} working")
+    @commands.command()
+    async def syncAutomod(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Synced Automod with {len(self.client.commands)} commands")
+        
+    #Warns
+    @app_commands.command(name = "warn", description= "Warns a user")
+    async def warn(self, interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
+        
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "warn"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.warn(interaction, member, reason)
+                else:
+                    await KTmoderation.warn(interaction, member, reason)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "removewarn", description= "Removes 1 warn from a user")
+    async def removewarn(self, interaction : discord.Interaction, member : discord.Member) -> None:
+        
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "warn/unwarn"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.remove_warn(interaction, member,)
+                else:
+                    await KTmoderation.remove_warn(interaction, member)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "removeallwarns", description= "Removes all warn counts from a user")
+    async def removeallwarns(self, interaction : discord.Interaction, member : discord.Member) -> None:
+        
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            
+            if await is_member_punishable(interaction, member, "warn/unwarn"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.remove_all_warns(interaction, member,)
+                else:
+                    await KTmoderation.remove_all_warns(interaction, member)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    #Mutes
+    @app_commands.command(name = "mute", description= "Mutes a user for x minutes")
+    async def mute(self, interaction : discord.Interaction, member : discord.Member, reason : str, duration : int) -> None:
+        
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "mute/unmute"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.mute(interaction, member, reason, duration)
+                else:
+                    await KTmoderation.mute(interaction, member, reason, duration)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "unmute", description= "Unmutes a user")
+    async def unmute(self, interaction : discord.Interaction, member : discord.Member) -> None:
+
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "mute/unmute"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.unmute(interaction, member)
+                else:
+                    await KTmoderation.unmute(interaction, member)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "removemute", description= "Removes 1 mute count from a user, does NOT unmute")
+    async def removemute(self, interaction : discord.Interaction, member : discord.Member) -> None:
+        
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "mute/unmute"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.remove_mute(interaction, member)
+                else:
+                    await KTmoderation.remove_mute(interaction, member)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "removeallmutes", description= "Removes all mute counts from a user, does NOT unmute")
+    async def removeallmutes(self, interaction : discord.Interaction, member : discord.Member) -> None:
+        
+        permissions = ["moderate_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "mute/unmute"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.remove_all_mutes(interaction, member)
+                else:
+                    await KTmoderation.remove_all_mutes(interaction, member)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    #Kicks
+    @app_commands.command(name = "kick", description= "Kicks a user")
+    async def kick(self, interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
+
+        permissions = ["kick_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "kick"):
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.kick(interaction, member, reason) 
+                else:
+                    await KTmoderation.kick(interaction, member, reason)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "removekick", description= "Removes 1 kick count from a user, does NOT kick")
+    async def removekick(self, interaction : discord.Interaction, member : discord.Member) -> None:
+        
+        permissions = ["kick_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "kick"):
+                embed = discord.Embed(
+                    description= f"✅ {member.mention} has been cleared of 1 kick count.",
+                    color = discord.Color.green()
+                )
+                await interaction.response.send_message(embed = embed)
+                
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    await KTmoderation.remove_kick(member)
+                else:
+                    await KTmoderation.remove_kick(member)
+
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name="removeallkicks", description= "Removes all kick counts from a user, does NOT kick")
+    async def removeallkicks(self, interaction : discord.Interaction, member : discord.Member) -> None:
+        
+        permissions = ["kick_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "kick"):
+                embed = discord.Embed(
+                    description= f"✅ {member.mention} has been cleared of all kicks.",
+                    color = discord.Color.green()
+                )
+                await interaction.response.send_message(embed = embed)
+                
+                if str(member.id) not in warns_mutes_kicks:
+                    await KTmoderation.add_user(member)
+                    warns_mutes_kicks[str(member.id)][2] = 0
+                else:
+                    warns_mutes_kicks[str(member.id)][2] = 0
+                
+                await KTtools.save_WMK(warns_mutes_kicks, str(interaction.guild_id))
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    #Ban
+    @app_commands.command(name = "ban", description= "Bans a user")
+    async def ban(self, interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
+
+        permissions = ["ban_members"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
+        
+        if has_perms:
+            if await is_member_punishable(interaction, member, "ban"):
+                await member.ban(reason = reason)
+                
+                embed = discord.Embed(
+                    description= f"{member.mention} has been banned for reason:\n\n**{reason}**",
+                    color = discord.Color.dark_gray()
+                )
+                await interaction.response.send_message(embed = embed)     
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    #Automoderation
+    @app_commands.command(name = "maxwarncount", description= "Sets the max warn count")
+    async def setmaxwarncount(self, interaction : discord.Interaction,count : int) -> None:
+        
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            if count < 0:
+                embed = discord.Embed(
+                    description= "❌ Count must be greater than 0.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True)
+            config = await KTtools.load_config(str(interaction.guild.id))
+            config["max_warns"] = count
+            await KTtools.save_config(config, str(interaction.guild.id))
+            
+            embed = discord.Embed(
+                description= f"✅ Set max warns to {count}.",
+                color = discord.Color.green()
+            )
+            await interaction.response.send_message(embed = embed)
+        
+        
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "maxmutecount", description= "Sets the max mute count")
+    async def maxmutecount(self, interaction : discord.Interaction,count : int) -> None:
+        
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            if count < 0:
+                embed = discord.Embed(
+                    description= "❌ Count must be greater than 0.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True)
+            config = await KTtools.load_config(str(interaction.guild.id))
+            config["max_mutes"] = count
+            await KTtools.save_config(config, str(interaction.guild.id))
+            
+            embed = discord.Embed(
+                description= f"✅ Set max mutes to {count}.",
+                color = discord.Color.green()
+            )
+            await interaction.response.send_message(embed = embed)
+        
+        
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "muteduration", description = "Sets automod mute duration in minutes")
+    async def muteduration(self, interaction : discord.Interaction, duration : int) -> None:
+        
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            if duration < 0:
+                embed = discord.Embed(
+                    description= "❌ Duration must be greater than 0.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True)
+            config = await KTtools.load_config(str(interaction.guild.id))
+            config["mute_duration"] = duration
+            await KTtools.save_config(config, str(interaction.guild.id))
+            
+            embed = discord.Embed(
+                description= f"✅ Set mute duration to {duration} minutes.",
+                color = discord.Color.green()
+            )
+            await interaction.response.send_message(embed = embed)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name="maxkickcount", description= "Sets the max kick count")
+    async def maxkickcount(self, interaction : discord.Interaction,count : int) -> None:
+        
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            if count < 0:
+                embed = discord.Embed(
+                    description= "❌ Count must be greater than 0.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True)
+            config = await KTtools.load_config(str(interaction.guild.id))
+            config["max_kicks"] = count
+            await KTtools.save_config(config, str(interaction.guild.id))
+            
+            embed = discord.Embed(
+                description= f"✅ Set max kicks to {count}.",
+                color = discord.Color.green()
+            )
+            await interaction.response.send_message(embed = embed)
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "banword", description= "Ban a word for the automod system to work on")
+    async def banword(self, interaction : discord.Interaction, word : str) -> None:
+        
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            server_id = str(interaction.guild_id)
+            word = unidecode(word.lower())
+            banned_words = await KTtools.load_banned_words(server_id)
+            
+            if word in banned_words:
+                embed = discord.Embed(
+                    description= f"❌ '**{word}**' is already banned.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed)
+            banned_words.append(word)
+            await KTtools.save_banned_words(banned_words, server_id)
+            global banned_words_per_server
+            banned_words_per_server = KTtools.get_banned_words_per_server()
+            
+            embed = discord.Embed(
+                description= f"✅ Banned word **{word}**.",
                 color = discord.Color.green()
             )
             await interaction.response.send_message(embed = embed)
             
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                await KTmoderation.remove_kick(member)
-            else:
-                await KTmoderation.remove_kick(member)
-
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name="removeallkicks", description= "Removes all kick counts from a user, does NOT kick")
-async def removeallkicks(interaction : discord.Interaction, member : discord.Member) -> None:
-    
-    permissions = ["kick_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    warns_mutes_kicks = await KTtools.load_WMK(str(interaction.guild.id))
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "kick"):
+        else:
             embed = discord.Embed(
-                description= f"✅ {member.mention} has been cleared of all kicks.",
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
+
+    @app_commands.command(name = "unbanword", description= "Remove a banned word")
+    async def unbanword(self, interaction : discord.Interaction, word : str) -> None:
+        
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            server_id = str(interaction.guild_id)
+            word = unidecode(word.lower())
+            banned_words = await KTtools.load_banned_words(server_id)
+            
+            if word not in banned_words:
+                embed = discord.Embed(
+                    description= f"❌ **'{word}'** is not banned.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed)
+            banned_words.remove(word)
+            await KTtools.save_banned_words(banned_words, server_id)
+            global banned_words_per_server
+            banned_words_per_server = KTtools.get_banned_words_per_server()
+            
+            embed = discord.Embed(
+                description= f"✅Unbanned **{word}** from word list.",
                 color = discord.Color.green()
             )
             await interaction.response.send_message(embed = embed)
-            
-            if str(member.id) not in warns_mutes_kicks:
-                await KTmoderation.add_user(member)
-                warns_mutes_kicks[str(member.id)][2] = 0
-            else:
-                warns_mutes_kicks[str(member.id)][2] = 0
-            
-            await KTtools.save_WMK(warns_mutes_kicks, str(interaction.guild_id))
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
+        
+        else:
+            embed = discord.Embed(  
+                description= "❌ You don't have permission to use this command.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed, ephemeral=True)
 
-#Ban
-@tree.command(name = "ban", description= "Bans a user")
-async def ban(interaction : discord.Interaction, member : discord.Member, reason : str) -> None:
+    @app_commands.command(name = "cleareveryone", description= "Clears everyone's warn, mute and kick counts")
+    async def cleareveryone(self, interaction : discord.Interaction) -> None:
 
-    permissions = ["ban_members"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions) or await KTtools.interactionuser_has_permissions(interaction, ["administrator"])
-    
-    if has_perms:
-        if await is_member_punishable(interaction, member, "ban"):
-            await member.ban(reason = reason)
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            wmk = await KTtools.load_WMK(str(interaction.guild_id))
+            wmk = {"USER_TEMPLATE" : [0, 0, 0]}
+            await KTtools.save_WMK(wmk, str(interaction.guild_id))
             
             embed = discord.Embed(
-                description= f"{member.mention} has been banned for reason:\n\n**{reason}**",
-                color = discord.Color.dark_gray()
+                description= "✅ Cleared everyone's warn, mute and kick counts.",
+                color = discord.Color.green()
             )
-            await interaction.response.send_message(embed = embed)     
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-#Automoderation
-@tree.command(name = "maxwarncount", description= "Sets the max warn count")
-async def setmaxwarncount(interaction : discord.Interaction,count : int) -> None:
-    
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        if count < 0:
+            return await interaction.response.send_message(embed = embed)
+        
+        else:
             embed = discord.Embed(
-                description= "❌ Count must be greater than 0.",
+                description= "❌ You don't have permission to use this command.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config(str(interaction.guild.id))
-        config["max_warns"] = count
-        await KTtools.save_config(config, str(interaction.guild.id))
-        
-        embed = discord.Embed(
-            description= f"✅ Set max warns to {count}.",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
-    
-    
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "maxmutecount", description= "Sets the max mute count")
-async def maxmutecount(interaction : discord.Interaction,count : int) -> None:
-    
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        if count < 0:
+    @app_commands.command(name = "clearbannedwords", description= "Removes all banned words")
+    async def clearbannedwords(self, interaction : discord.Interaction) -> None:
+
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            banned_words = await KTtools.load_banned_words(str(interaction.guild_id))
+            banned_words = []
+            await KTtools.save_banned_words(banned_words, str(interaction.guild_id))
+            
             embed = discord.Embed(
-                description= "❌ Count must be greater than 0.",
+                description= "✅ Cleared all banned words.",
+                color = discord.Color.green()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config(str(interaction.guild.id))
-        config["max_mutes"] = count
-        await KTtools.save_config(config, str(interaction.guild.id))
-        
-        embed = discord.Embed(
-            description= f"✅ Set max mutes to {count}.",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
-    
-    
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name = "muteduration", description = "Sets automod mute duration in minutes")
-async def muteduration(interaction : discord.Interaction, duration : int) -> None:
-    
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        if duration < 0:
+    @app_commands.command(name = "resetconfig", description= "Resets the config to default")
+    async def resetconfig(self, interaction : discord.Interaction) -> None:
+
+        permissions = ["administrator"]
+        has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
+        
+        if has_perms:
+            config = await KTtools.load_config(str(interaction.guild_id))
+            config = {"server_id" : str(interaction.guild_id), "welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": "[]", "react_roles": "{}", "autorole_channels": "[]", "muted_users": "[]", "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}
+            await KTtools.save_config(config, str(interaction.guild_id))
+            
             embed = discord.Embed(
-                description= "❌ Duration must be greater than 0.",
+                description= "✅ Reset the config.",
+                color = discord.Color.green()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        else:
+            embed = discord.Embed(
+                description= "❌ You don't have permission to use this command.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config(str(interaction.guild.id))
-        config["mute_duration"] = duration
-        await KTtools.save_config(config, str(interaction.guild.id))
-        
-        embed = discord.Embed(
-            description= f"✅ Set mute duration to {duration} minutes.",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
 
-@tree.command(name="maxkickcount", description= "Sets the max kick count")
-async def maxkickcount(interaction : discord.Interaction,count : int) -> None:
+class Music(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.client.tree.sync()
+        print(f"{client.user} working")
+    @commands.command()
+    async def syncMusic(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Synced Music with {len(self.client.commands)} commands")
     
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
     
-    if has_perms:
-        if count < 0:
-            embed = discord.Embed(
-                description= "❌ Count must be greater than 0.",
-                color = discord.Color.red()
-            )
-            return await interaction.response.send_message(embed = embed, ephemeral=True)
-        config = await KTtools.load_config(str(interaction.guild.id))
-        config["max_kicks"] = count
-        await KTtools.save_config(config, str(interaction.guild.id))
+    @app_commands.command(name = "connect", description= "Connect to voice channel")
+    async def connect(self, interaction : discord.Interaction) -> None:
+        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
         
-        embed = discord.Embed(
-            description= f"✅ Set max kicks to {count}.",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "banword", description= "Ban a word for the automod system to work on")
-async def banword(interaction : discord.Interaction, word : str) -> None:
-    
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        server_id = str(interaction.guild_id)
-        word = unidecode(word.lower())
-        banned_words = await KTtools.load_banned_words(server_id)
-        
-        if word in banned_words:
+        if not interaction.user.voice:
             embed = discord.Embed(
-                description= f"❌ '**{word}**' is already banned.",
+                description= "❌ You are not connected to a voice channel.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        banned_words.append(word)
-        await KTtools.save_banned_words(banned_words, server_id)
-        global banned_words_per_server
-        banned_words_per_server = KTtools.get_banned_words_per_server()
+        elif voice and voice.is_connected():
+            embed = discord.Embed(
+                description= "❌ I am already connected to a voice channel. Use /move to move me to your channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)   
         
+        voice = await interaction.user.voice.channel.connect()
         embed = discord.Embed(
-            description= f"✅ Banned word **{word}**.",
+            description= "✅ Connected to voice channel.",
             color = discord.Color.green()
         )
-        await interaction.response.send_message(embed = embed)
-        
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed, ephemeral=True)
+        return await interaction.response.send_message(embed = embed)
 
-@tree.command(name = "unbanword", description= "Remove a banned word")
-async def unbanword(interaction : discord.Interaction, word : str) -> None:
-    
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        server_id = str(interaction.guild_id)
-        word = unidecode(word.lower())
-        banned_words = await KTtools.load_banned_words(server_id)
+    @app_commands.command(name = "disconnect", description= "Disconnect from voice channel")
+    async def disconnect(self, interaction : discord.Interaction) -> None:
+        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+        playlistconfig = await KTtools.load_playlist(str(interaction.guild.id))
         
-        if word not in banned_words:
+        if playlistconfig["isplaying"]:
             embed = discord.Embed(
-                description= f"❌ **'{word}'** is not banned.",
+                description= "❌ I am currently playing music, please stop it before disconnecting.",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        banned_words.remove(word)
-        await KTtools.save_banned_words(banned_words, server_id)
-        global banned_words_per_server
-        banned_words_per_server = KTtools.get_banned_words_per_server()
-        
-        embed = discord.Embed(
-            description= f"✅Unbanned **{word}** from word list.",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
-    
-    else:
-        embed = discord.Embed(  
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "cleareveryone", description= "Clears everyone's warn, mute and kick counts")
-async def cleareveryone(interaction : discord.Interaction) -> None:
-
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        wmk = await KTtools.load_WMK(str(interaction.guild_id))
-        wmk = {"USER_TEMPLATE" : [0, 0, 0]}
-        await KTtools.save_WMK(wmk, str(interaction.guild_id))
-        
-        embed = discord.Embed(
-            description= "✅ Cleared everyone's warn, mute and kick counts.",
-            color = discord.Color.green()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "clearbannedwords", description= "Removes all banned words")
-async def clearbannedwords(interaction : discord.Interaction) -> None:
-
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        banned_words = await KTtools.load_banned_words(str(interaction.guild_id))
-        banned_words = []
-        await KTtools.save_banned_words(banned_words, str(interaction.guild_id))
-        
-        embed = discord.Embed(
-            description= "✅ Cleared all banned words.",
-            color = discord.Color.green()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed, ephemeral=True)
-
-@tree.command(name = "resetconfig", description= "Resets the config to default")
-async def resetconfig(interaction : discord.Interaction) -> None:
-
-    permissions = ["administrator"]
-    has_perms = await KTtools.interactionuser_has_permissions(interaction, permissions)
-    
-    if has_perms:
-        config = await KTtools.load_config(str(interaction.guild_id))
-        config = {"server_id" : str(interaction.guild_id), "welcome_channel": "", "welcome_type": "text", "welcome_image": "", "welcome_message": "Welcome @user to @server", "onjoin_roles": "[]", "react_roles": "{}", "autorole_channels": "[]", "muted_users": "[]", "max_warns": 3, "max_mutes": 3, "mute_duration": 10, "max_kicks": 3}
-        await KTtools.save_config(config, str(interaction.guild_id))
-        
-        embed = discord.Embed(
-            description= "✅ Reset the config.",
-            color = discord.Color.green()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    else:
-        embed = discord.Embed(
-            description= "❌ You don't have permission to use this command.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed, ephemeral=True)
-
-
-#*Play command
-@tree.command(name = "connect", description= "Connect to voice channel")
-async def connect(interaction : discord.Interaction) -> None:
-    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-    
-    if not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif voice and voice.is_connected():
-        embed = discord.Embed(
-            description= "❌ I am already connected to a voice channel. Use /move to move me to your channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)   
-    
-    voice = await interaction.user.voice.channel.connect()
-    embed = discord.Embed(
-        description= "✅ Connected to voice channel.",
-        color = discord.Color.green()
-    )
-    return await interaction.response.send_message(embed = embed)
-
-@tree.command(name = "disconnect", description= "Disconnect from voice channel")
-async def disconnect(interaction : discord.Interaction) -> None:
-    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-    playlistconfig = await KTtools.load_playlist(str(interaction.guild.id))
-    
-    if playlistconfig["isplaying"]:
-        embed = discord.Embed(
-            description= "❌ I am currently playing music, please stop it before disconnecting.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not voice or not voice.is_connected():
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-
-    await voice.cleanup()
-    await voice.disconnect()
-    embed = discord.Embed(
-        description= "✅ Disconnected from voice channel.",
-        color = discord.Color.green()
-    )
-    return await interaction.response.send_message(embed = embed)
-
-@tree.command(name = "forcedisconnect", description= "Disconnect from voice channel by force")
-async def forcedisconnect(interaction : discord.Interaction) -> None:
-    if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+        elif not voice or not voice.is_connected():
             embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True)
-    
-    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-    if voice and voice.is_connected():
-        await stop(interaction)
-        await voice.cleanup()
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+
+        voice.cleanup()
         await voice.disconnect()
         embed = discord.Embed(
             description= "✅ Disconnected from voice channel.",
             color = discord.Color.green()
         )
         return await interaction.response.send_message(embed = embed)
-    else:
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
 
-@tree.command(name = "move", description= "Move to new voice channel")
-async def move(interaction : discord.Interaction) -> None:
-    playlistconfig = await KTtools.load_playlist(str(interaction.guild.id))
-    
-    if not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not interaction.guild.me.voice:
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel == interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ I am already in your voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif playlistconfig["isplaying"]:
-        embed = discord.Embed(
-            description= "❌ You cant move me to a voice channel while playing a song.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
-            embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
-            )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-    
-    await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
-    embed = discord.Embed(
-        description= "✅ Moved to new voice channel.",
-        color = discord.Color.green()
-    )
-    await interaction.response.send_message(embed = embed)
+    @app_commands.command(name = "forcedisconnect", description= "Disconnect from voice channel by force")
+    async def forcedisconnect(self, interaction : discord.Interaction) -> None:
+        if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True)
         
-@tree.command(name = "play", description= "Play or queue a song into the playlist")
-async def play(interaction : discord.Interaction, song : str) -> None:
-    server_id = str(interaction.guild_id)
-    playlistconfig = await KTtools.load_playlist(server_id)
-    
-    if not interaction.guild.me.voice:
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-
-    embed = discord.Embed(
-        description= f"✅ Added **{KTmusic.get_youtube_search_info(song)['title']}** to playlist.",
-        color = discord.Color.green()
-        )
-    await interaction.response.send_message(embed = embed)
-    
-    playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(song)['title'])
-    await KTtools.save_playlist(playlistconfig, server_id)
-    
-    if not playlistconfig["isplaying"]:
-        try:
-            playlistconfig["isplaying"] = True
-            await KTtools.save_playlist(playlistconfig, server_id)
-            await KTmusic.play_next(interaction, KTmusic.get_youtube_search_info(song)['title'])
-        except Exception: ... 
-
-@tree.command(name = "stop", description = "Stop playing music and clear playlist")
-async def stop(interaction : discord.Interaction) -> None:
-    server_id = str(interaction.guild.id)
-    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-    playlistconfig = await KTtools.load_playlist(server_id)
-    
-    if not voice or not voice.is_connected():
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not playlistconfig["isplaying"]:
-        embed = discord.Embed(
-            description= "❌ I am not playing anything.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+        if voice and voice.is_connected():
+            await self.stop(interaction)
+            voice.cleanup()
+            await voice.disconnect()
             embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
+                description= "✅ Disconnected from voice channel.",
+                color = discord.Color.green()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-    
-    embed = discord.Embed(
-        description= "✅ Stopped the music",
-        color = discord.Color.green()
-    )
-    await interaction.response.send_message(embed = embed)
-
-    interaction.guild.voice_client.stop()
-    playlistconfig = await KTtools.load_playlist(server_id)
-    playlistconfig["playlist"] = []
-    playlistconfig["isplaying"] = False
-    await KTtools.save_playlist(playlistconfig, server_id)
-    
-@tree.command(name = "pause", description = "Pause/resume the playing")
-async def pause(interaction : discord.Interaction) -> None:
-    server_id = str(interaction.guild.id)
-    voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-    playlistconfig = await KTtools.load_playlist(server_id)
-    
-    if not voice or not voice.is_connected():
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not playlistconfig["isplaying"]:
-        embed = discord.Embed(
-            description= "❌ I am not playing anything.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+            return await interaction.response.send_message(embed = embed)
+        else:
             embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-    
-    embed = discord.Embed(
-        description= "✅ Stopped the music",
-        color = discord.Color.green()
-    )
-    await interaction.response.send_message(embed = embed)
-    
-    if not interaction.guild.voice_client.is_paused():
-        interaction.guild.voice_client.pause()
-    else:
-        interaction.guild.voice_client.resume()
+            return await interaction.response.send_message(embed = embed)
+
+    @app_commands.command(name = "move", description= "Move to new voice channel")
+    async def move(self, interaction : discord.Interaction) -> None:
+        playlistconfig = await KTtools.load_playlist(str(interaction.guild.id))
         
-@tree.command(name = "repeat", description = "Toggle repeat on/off")
-async def repeat(interaction : discord.Interaction) -> None:
-    server_id = str(interaction.guild.id)
-    
-    if not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not interaction.guild.me.voice:
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+        if not interaction.user.voice:
             embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
+                description= "❌ You are not connected to a voice channel.",
+                color = discord.Color.red()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-    
-    playlistconfig = await KTtools.load_playlist(server_id)
-    playlistconfig["repeat"] = not playlistconfig["repeat"]
-    await KTtools.save_playlist(playlistconfig, server_id)
-    
-    if playlistconfig["repeat"]:
+            return await interaction.response.send_message(embed = embed)
+        elif not interaction.guild.me.voice:
+            embed = discord.Embed(
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel == interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ I am already in your voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif playlistconfig["isplaying"]:
+            embed = discord.Embed(
+                description= "❌ You cant move me to a voice channel while playing a song.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        
+        await interaction.guild.voice_client.move_to(interaction.user.voice.channel)
         embed = discord.Embed(
-            description= "### Repeat ON",
+            description= "✅ Moved to new voice channel.",
             color = discord.Color.green()
         )
-    else:
-        embed = discord.Embed(
-            description= "### Repeat OFF",
-            color = discord.Color.red()
-        )
-    await interaction.response.send_message(embed = embed)
-
-@tree.command(name = "shuffle", description = "Shuffle the playlist")
-async def shuffle(interaction : discord.Interaction) -> None:
-    server_id = str(interaction.guild.id)
-    
-    if not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not interaction.guild.me.voice:
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+        await interaction.response.send_message(embed = embed)
+            
+    @app_commands.command(name = "play", description= "Play or queue a song into the playlist")
+    async def play(self, interaction : discord.Interaction, song : str) -> None:
+        server_id = str(interaction.guild_id)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        
+        if not interaction.guild.me.voice:
             embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-    
-    playlistconfig = await KTtools.load_playlist(server_id)
-    playlistconfig["shuffle"] = not playlistconfig["shuffle"]
-    await KTtools.save_playlist(playlistconfig, server_id)
-    
-    if playlistconfig["shuffle"]:
+            return await interaction.response.send_message(embed = embed)
+        elif not interaction.user.voice:
+            embed = discord.Embed(
+                description= "❌ You are not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+
         embed = discord.Embed(
-            description= "### Shuffle ON",
+            description= f"✅ Added **{KTmusic.get_youtube_search_info(query = song)['title']}** to playlist.",
             color = discord.Color.green()
-        )
-    else:
-        embed = discord.Embed(
-            description= "### Shuffle OFF",
-            color = discord.Color.red()
-        )
-    await interaction.response.send_message(embed = embed)
-
-@tree.command(name = "next", description = "Play the next song in the playlist")
-async def nextc(interaction : discord.Interaction) -> None:
-    playlistconfig = await KTtools.load_playlist(str(interaction.guild.id))
-    server_id = str(interaction.guild.id)
-    
-    if not playlistconfig["isplaying"]:
-        embed = discord.Embed(
-            description= "❌ I am not playing anything.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif (len(playlistconfig["playlist"]) == 1) and not playlistconfig["repeat"]:
-        embed = discord.Embed(
-            description= "❌ Last song in the playlist, use /stop to stop the music",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
-            embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-
-    embed = discord.Embed(
-        description= "✅ Loading next song...",
-        color = discord.Color.green()
-    )
-    await interaction.response.send_message(embed = embed)
-
-    await KTtools.save_playlist({"playlist": "[]", "isplaying": False}, server_id)
-    interaction.guild.voice_client.stop()
-    
-    if playlistconfig["repeat"]:
-        playingsong = playlistconfig["playlist"][0]
-        playlistconfig["playlist"].append(playingsong)
-        playlistconfig["playlist"].remove(playingsong)
-    else:
-        playlistconfig["playlist"].remove(playingsong)
-    await KTtools.save_playlist(playlistconfig, str(interaction.guild.id))
-    
-    playlistconfig = await KTtools.load_playlist(server_id)
-    if playlistconfig["shuffle"]:
-        idxnext = randint(0, len(playlistconfig["playlist"])-1)
-        playlistconfig["playlist"][0], playlistconfig["playlist"][idxnext] = playlistconfig["playlist"][idxnext], playlistconfig["playlist"][0]
+        await interaction.response.send_message(embed = embed)
+        
+        playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(query = song)['title'])
         await KTtools.save_playlist(playlistconfig, server_id)
+        await asyncio.sleep(1)
+        
+        if not playlistconfig["isplaying"]:
+            try:
+                playlistconfig["isplaying"] = True
+                playlistconfig["nowplaying"] = KTmusic.get_youtube_search_info(query = song)['title']
+                await KTtools.save_playlist(playlistconfig, server_id)
+                await KTmusic.play_next(interaction = interaction, song = KTmusic.get_youtube_search_info(query = song)['title'])
+            except Exception: ... 
 
-@tree.command(name = "rmsong", description = "Remove a song from the playlist")
-async def rmsong(interaction : discord.Interaction, song : str) -> None:
-    server_id = str(interaction.guild.id)
-    playlistconfig = await KTtools.load_playlist(server_id)
-    
-    if not interaction.user.voice:
-        embed = discord.Embed(
-            description= "❌ You are not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif not interaction.guild.me.voice:
-        embed = discord.Embed(
-            description= "❌ I am not connected to a voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-        embed = discord.Embed(
-            description= "❌ You are not in my voice channel.",
-            color = discord.Color.red()
-        )
-        return await interaction.response.send_message(embed = embed)
-    
-    """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
-        if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+    @app_commands.command(name = "stop", description = "Stop playing music and clear playlist")
+    async def stop(self, interaction : discord.Interaction) -> None:
+        server_id = str(interaction.guild.id)
+        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        
+        if not voice or not voice.is_connected():
             embed = discord.Embed(
-                description= "You need to have the 'DJ' role or be an admin to use this command!",
-                color = discord.Color.dark_purple()
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
             )
-            return await interaction.response.send_message(embed = embed, ephemeral=True) """
-    
-    if KTmusic.get_youtube_search_info(song)["title"] not in playlistconfig["playlist"]:
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif not playlistconfig["isplaying"]:
+            embed = discord.Embed(
+                description= "❌ I am not playing anything.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        
         embed = discord.Embed(
-            description = f"❌ **{song}** is not in the playlist",
-            color = discord.Color.red()
+            description= "✅ Stopped the music",
+            color = discord.Color.green()
         )
-        return await interaction.response.send_message(embed = embed)
+        await interaction.response.send_message(embed = embed)
 
-    playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(song)["title"])
-    await KTtools.save_playlist(playlistconfig, server_id)
-    
-    embed = discord.Embed(
-        description = f"Removed **{song}** from the playlist",
-        color = discord.Color.dark_purple()
-    )
-    await interaction.response.send_message(embed = embed)
-
-@tree.command(name = "playlist", description = "Show the current playlist")
-async def playlist(interaction : discord.Interaction) -> None:
-    server_id = str(interaction.guild.id)
-    playlistconfig = await KTtools.load_playlist(server_id)
-    
-    if not playlistconfig["isplaying"]:
+        interaction.guild.voice_client.stop()
+        playlistconfig = await KTtools.load_playlist(server_id)
+        playlistconfig["playlist"] = []
+        playlistconfig["isplaying"] = False
+        playlistconfig["nowplaying"] = ""
+        await KTtools.save_playlist(playlistconfig, server_id)
+        
+    @app_commands.command(name = "pause", description = "Pause/resume the playing")
+    async def pause(interaction : discord.Interaction, *args) -> None:
+        server_id = str(interaction.guild.id)
+        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        
+        if not voice or not voice.is_connected():
+            embed = discord.Embed(
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif not playlistconfig["isplaying"]:
+            embed = discord.Embed(
+                description= "❌ I am not playing anything.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        
         embed = discord.Embed(
-            description = "❌ I am not playing anything",
-            color = discord.Color.red()
+            description= "✅ Stopped the music",
+            color = discord.Color.green()
         )
-        return await interaction.response.send_message(embed = embed)
+        await interaction.response.send_message(embed = embed)
+        
+        if not interaction.guild.voice_client.is_paused():
+            interaction.guild.voice_client.pause()
+        else:
+            interaction.guild.voice_client.resume()
+            
+    @app_commands.command(name = "repeat", description = "Toggle repeat on/off")
+    async def repeat(self, interaction : discord.Interaction) -> None:
+        server_id = str(interaction.guild.id)
+        
+        if not interaction.user.voice:
+            embed = discord.Embed(
+                description= "❌ You are not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif not interaction.guild.me.voice:
+            embed = discord.Embed(
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        
+        playlistconfig = await KTtools.load_playlist(server_id)
+        playlistconfig["repeat"] = not playlistconfig["repeat"]
+        await KTtools.save_playlist(playlistconfig, server_id)
+        
+        if playlistconfig["repeat"]:
+            embed = discord.Embed(
+                description= "### Repeat ON",
+                color = discord.Color.green()
+            )
+        else:
+            embed = discord.Embed(
+                description= "### Repeat OFF",
+                color = discord.Color.red()
+            )
+        await interaction.response.send_message(embed = embed)
+
+    @app_commands.command(name = "shuffle", description = "Shuffle the playlist")
+    async def shuffle(self, interaction : discord.Interaction) -> None:
+        server_id = str(interaction.guild.id)
+        
+        if not interaction.user.voice:
+            embed = discord.Embed(
+                description= "❌ You are not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif not interaction.guild.me.voice:
+            embed = discord.Embed(
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        
+        playlistconfig = await KTtools.load_playlist(server_id)
+        playlistconfig["shuffle"] = not playlistconfig["shuffle"]
+        await KTtools.save_playlist(playlistconfig, server_id)
+        
+        if playlistconfig["shuffle"]:
+            embed = discord.Embed(
+                description= "### Shuffle ON",
+                color = discord.Color.green()
+            )
+        else:
+            embed = discord.Embed(
+                description= "### Shuffle OFF",
+                color = discord.Color.red()
+            )
+        await interaction.response.send_message(embed = embed)
+
+    @app_commands.command(name = "next", description = "Play the next song in the playlist")
+    async def nextc(self, interaction : discord.Interaction) -> None:
+        server_id = str(interaction.guild.id)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        
+        if not playlistconfig["isplaying"]:
+            embed = discord.Embed(
+                description= "❌ I am not playing anything.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif not interaction.user.voice:
+            embed = discord.Embed(
+                description= "❌ You are not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif (len(playlistconfig["playlist"]) == 1) and not playlistconfig["repeat"]:
+            embed = discord.Embed(
+                description= "❌ Last song in the playlist, use /stop to stop the music",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+
+        embed = discord.Embed(
+            description= "✅ Loading next song...",
+            color = discord.Color.green()
+        )
+        await interaction.response.send_message(embed = embed)
+
+        #Stop bot (Stops entirely ; Playlist reset needed and KTmusic.play_next is called more forward)
+        interaction.guild.voice_client.stop()
+        #Repeat check
+        if playlistconfig["repeat"]:
+            playlistconfig["playlist"].append(playlistconfig["nowplaying"])
+            playlistconfig["playlist"].remove(playlistconfig["nowplaying"])
+        elif not playlistconfig["repeat"] and len(playlistconfig["playlist"]) > 1:
+            playlistconfig["playlist"].remove(playlistconfig["nowplaying"])
+        #Shuffle check + Play again 
+        if playlistconfig["shuffle"]:
+            idxnext = randint(0, len(playlistconfig["playlist"]))
+            playlistconfig["nowplaying"] = playlistconfig["playlist"][idxnext]
+            await KTtools.save_playlist(playlistconfig, server_id)
+            
+            await KTmusic.play_next(interaction, playlistconfig["playlist"][idxnext])
+        elif not playlistconfig["shuffle"] or len(playlistconfig["playlist"]) == 1:
+            playlistconfig["nowplaying"] = playlistconfig["playlist"][0]
+            await KTtools.save_playlist(playlistconfig, server_id)
+            
+            await KTmusic.play_next(interaction, playlistconfig["playlist"][0])
+        
+
+    @app_commands.command(name = "rmsong", description = "Remove a song from the playlist")
+    async def rmsong(self, interaction : discord.Interaction, song : str) -> None:
+        server_id = str(interaction.guild.id)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        
+        if not interaction.user.voice:
+            embed = discord.Embed(
+                description= "❌ You are not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif not interaction.guild.me.voice:
+            embed = discord.Embed(
+                description= "❌ I am not connected to a voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
+            embed = discord.Embed(
+                description= "❌ You are not in my voice channel.",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        """ if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        
+        if KTmusic.get_youtube_search_info(query = song)["title"] not in playlistconfig["playlist"]:
+            embed = discord.Embed(
+                description = f"❌ **{song}** is not in the playlist",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+
+        playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(query = song)["title"])
+        await KTtools.save_playlist(playlistconfig, server_id)
+        
+        embed = discord.Embed(
+            description = f"Removed **{song}** from the playlist",
+            color = discord.Color.dark_purple()
+        )
+        await interaction.response.send_message(embed = embed)
+
+    @app_commands.command(name = "playlist", description = "Show the current playlist")
+    async def playlist(self, interaction : discord.Interaction) -> None:
+        server_id = str(interaction.guild.id)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        
+        if not playlistconfig["isplaying"]:
+            embed = discord.Embed(
+                description = "❌ I am not playing anything",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
+        
+        embed = KTmusic.create_playlist_embed(playlistconfig = playlistconfig)
+        await interaction.response.send_message(embed = embed)
     
-    embed = KTmusic.create_playlist_embed(playlistconfig)
-    await interaction.response.send_message(embed = embed)
+    
     
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 @client.event
 async def on_ready() -> None:
-    await tree.sync()
+    #await tree.sync()
+    await client.add_cog(Welcomer(client=client))
+    await client.add_cog(Autorole(client=client))
+    await client.add_cog(Automod(client = client))
+    await client.add_cog(Music(client = client))
     print(f"{client.user} working")
 
 

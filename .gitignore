@@ -2,3 +2,4 @@
 .env
 discord.log
 scripts
+configs.db
