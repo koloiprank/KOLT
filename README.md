@@ -3,6 +3,10 @@ Base discord App(Bot) KOLT
 
 ### COMPLETED FEATURES
 <ul>
+    <li>0. Fixes/Important changes</li>
+        <ul>
+            <li>Changed from function command tree to cog command tree functionality</li>
+        </ul>
     <li>1. Administrator / Moderator zone:</li>
         <ul>
             <li>Welcomer</li>
