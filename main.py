@@ -1565,7 +1565,7 @@ async def on_ready() -> None:
     await client.add_cog(Autorole(client=client))
     await client.add_cog(Automod(client = client))
     await client.add_cog(Music(client = client))
-    await inactivity_check.start()
+    inactivity_check.start()
     print(f"{client.user} working")
 
 
