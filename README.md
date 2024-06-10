@@ -6,6 +6,7 @@ Base discord App(Bot) KOLT
     <li>0. Fixes/Important changes</li>
         <ul>
             <li>Changed from function command tree to cog command tree functionality</li>
+            <li>Revamped music functionality to work as intended</li>
         </ul>
     <li>1. Administrator / Moderator zone:</li>
         <ul>
@@ -56,7 +57,6 @@ Base discord App(Bot) KOLT
 ### TODO 
 - Work on README.md
 - Prepare /help command
-- Work on setting the play command into a new thread so bot doesnt get stuck while loading song
 
 ## Requirements
 For your python modules, you will need to install all the requirements in requirements.txt with  

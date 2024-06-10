@@ -209,7 +209,7 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
     
     return ct == len(permissions)
 
-async def create_playlist(server_id : str) -> None:
+def create_playlist(server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
@@ -217,7 +217,6 @@ async def create_playlist(server_id : str) -> None:
         cursor.execute("""CREATE TABLE playlist (
             server_id text PRIMARY KEY,
             playlist text,
-            nowplaying text,
             isplaying text,
             repeat text,
             shuffle text)""")
@@ -226,7 +225,7 @@ async def create_playlist(server_id : str) -> None:
         ...
     
     try:
-        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}', '[]', '', 'False', 'False', 'False')")
+        cursor.execute(f"INSERT INTO playlist VALUES('{server_id}', '[]', 'False', 'False', 'False')")
         connexion.commit()
     except Exception:
         print("[DB.PLAYLIST.WARNING]>>>Could not insert into table, server_id already exists!!!")
@@ -238,7 +237,7 @@ async def load_playlist(server_id : str) -> dict:
     data = cursor.fetchone()
     connexion.close()
     
-    playlist_template = ["server_id", "playlist", "nowplaying", "isplaying", "repeat", "shuffle"]
+    playlist_template = ["server_id", "playlist", "isplaying", "repeat", "shuffle"]
     return {playlist_template[i] : eval_no_error(data[i]) for i in range(len(playlist_template))}
 async def save_playlist(data : list, server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
@@ -255,7 +254,7 @@ async def save_playlist(data : list, server_id : str) -> None:
 def resetplaylist()-> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
-    data = {"playlist": "[]", "isplaying": "False", "repeat": "False", "shuffle": "False", "volume": 100}
+    data = {"playlist": "[]", "isplaying": "False", "repeat": "False", "shuffle": "False"}
     server_id = "1067917569161441402"
     
     for key in data:
@@ -271,4 +270,6 @@ def dropplaylist()-> None:
     connexion.close()
 
 if __name__ == "__main__":
-    ...
+    a = [1, 2, 3]
+    a[0] = 5
+    print(a)

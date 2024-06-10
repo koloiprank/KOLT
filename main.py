@@ -1,8 +1,8 @@
 
 #*Discord
 import discord
-from discord import Intents, Client, app_commands
-from discord.ext import commands, tasks
+from discord import Intents, app_commands
+from discord.ext import commands
 
 #*OS+tools
 from typing import Final
@@ -12,7 +12,6 @@ import logging
 import time
 import asyncio
 from unidecode import unidecode
-from random import randint
 
 #*Custom modules
 import KTwelcome
@@ -1066,7 +1065,7 @@ class Music(commands.Cog):
     async def syncMusic(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"Synced Music with {len(self.client.commands)} commands")
     
-    
+
     @app_commands.command(name = "connect", description= "Connect to voice channel")
     async def connect(self, interaction : discord.Interaction) -> None:
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
@@ -1193,11 +1192,9 @@ class Music(commands.Cog):
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
-            
+    
     @app_commands.command(name = "play", description= "Play or queue a song into the playlist")
     async def play(self, interaction : discord.Interaction, song : str) -> None:
-        server_id = str(interaction.guild_id)
-        playlistconfig = await KTtools.load_playlist(server_id)
         
         if not interaction.guild.me.voice:
             embed = discord.Embed(
@@ -1224,18 +1221,15 @@ class Music(commands.Cog):
             )
         await interaction.response.send_message(embed = embed)
         
-        playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(query = song)['title'])
-        await KTtools.save_playlist(playlistconfig, server_id)
-        await asyncio.sleep(1)
+        playlistconfig = await KTtools.load_playlist(server_id = str(interaction.guild.id))
+        playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(song)['title'])
+        await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
         
         if not playlistconfig["isplaying"]:
-            try:
-                playlistconfig["isplaying"] = True
-                playlistconfig["nowplaying"] = KTmusic.get_youtube_search_info(query = song)['title']
-                await KTtools.save_playlist(playlistconfig, server_id)
-                await KTmusic.play_next(interaction = interaction, song = KTmusic.get_youtube_search_info(query = song)['title'])
-            except Exception: ... 
-
+            playlistconfig["isplaying"] = True
+            await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+            await KTmusic.play_song(interaction = interaction, song = song)
+    
     @app_commands.command(name = "stop", description = "Stop playing music and clear playlist")
     async def stop(self, interaction : discord.Interaction) -> None:
         server_id = str(interaction.guild.id)
@@ -1274,14 +1268,16 @@ class Music(commands.Cog):
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
-
-        interaction.guild.voice_client.stop()
-        playlistconfig = await KTtools.load_playlist(server_id)
-        playlistconfig["playlist"] = []
-        playlistconfig["isplaying"] = False
-        playlistconfig["nowplaying"] = ""
-        await KTtools.save_playlist(playlistconfig, server_id)
         
+        voice.stop()
+        await KTtools.save_playlist({"playlist": "[]", "isplaying": "False"}, server_id)
+        
+        embed = discord.Embed(
+            description= "## Playlist finished!",
+            color = discord.Color.dark_purple()
+            )
+        await interaction.channel.send(embed = embed)
+
     @app_commands.command(name = "pause", description = "Pause/resume the playing")
     async def pause(interaction : discord.Interaction, *args) -> None:
         server_id = str(interaction.guild.id)
@@ -1463,28 +1459,8 @@ class Music(commands.Cog):
             color = discord.Color.green()
         )
         await interaction.response.send_message(embed = embed)
-
-        #Stop bot (Stops entirely ; Playlist reset needed and KTmusic.play_next is called more forward)
-        interaction.guild.voice_client.stop()
-        #Repeat check
-        if playlistconfig["repeat"]:
-            playlistconfig["playlist"].append(playlistconfig["nowplaying"])
-            playlistconfig["playlist"].remove(playlistconfig["nowplaying"])
-        elif not playlistconfig["repeat"] and len(playlistconfig["playlist"]) > 1:
-            playlistconfig["playlist"].remove(playlistconfig["nowplaying"])
-        #Shuffle check + Play again 
-        if playlistconfig["shuffle"]:
-            idxnext = randint(0, len(playlistconfig["playlist"]))
-            playlistconfig["nowplaying"] = playlistconfig["playlist"][idxnext]
-            await KTtools.save_playlist(playlistconfig, server_id)
-            
-            await KTmusic.play_next(interaction, playlistconfig["playlist"][idxnext])
-        elif not playlistconfig["shuffle"] or len(playlistconfig["playlist"]) == 1:
-            playlistconfig["nowplaying"] = playlistconfig["playlist"][0]
-            await KTtools.save_playlist(playlistconfig, server_id)
-            
-            await KTmusic.play_next(interaction, playlistconfig["playlist"][0])
         
+        interaction.guild.voice_client.stop()
 
     @app_commands.command(name = "rmsong", description = "Remove a song from the playlist")
     async def rmsong(self, interaction : discord.Interaction, song : str) -> None:
@@ -1546,9 +1522,9 @@ class Music(commands.Cog):
             )
             return await interaction.response.send_message(embed = embed)
         
-        embed = KTmusic.create_playlist_embed(playlistconfig = playlistconfig)
+        loop = asyncio.get_event_loop()
+        embed = await loop.run_in_executor(None, lambda: KTmusic.create_playlist_embed(playlistconfig = playlistconfig))
         await interaction.response.send_message(embed = embed)
-    
     
     
 #!START
