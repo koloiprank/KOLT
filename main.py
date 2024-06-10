@@ -1501,7 +1501,8 @@ class Music(commands.Cog):
             )
             return await interaction.response.send_message(embed = embed)
 
-        playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(query = song)["title"])
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(query = song)["title"]))
         await KTtools.save_playlist(playlistconfig, server_id)
         
         embed = discord.Embed(
