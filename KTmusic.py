@@ -91,8 +91,9 @@ async def play_song(interaction : discord.Interaction, song : str) -> None:
     playing = await searchyt(playlistconfig["playlist"][0])
     if playing:
         musicurl = playing["source"]
-        interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
-        
+        try:
+            interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
+        except Exception: ...
         while interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
             await asyncio.sleep(1)
         
@@ -134,8 +135,9 @@ async def play_next(interaction : discord.Interaction) -> None:
         playing = await searchyt(playlistconfig["playlist"][0])
         if playing:
             musicurl = playing["source"]
-            interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
-                                                        
+            try:
+                interaction.guild.voice_client.play(discord.FFmpegPCMAudio(musicurl, before_options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5", options = "-vn"))
+            except Exception: ...                                          
             while interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
                 await asyncio.sleep(1)
             

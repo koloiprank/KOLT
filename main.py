@@ -2,7 +2,7 @@
 #*Discord
 import discord
 from discord import Intents, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 #*OS+tools
 from typing import Final
@@ -48,6 +48,7 @@ async def on_guild_join(guild):
     
     global banned_words_per_server
     banned_words_per_server = KTtools.get_banned_words_per_server()
+
 
 #*Chat logging + Automod
 if os.path.exists("configs.db"):
@@ -125,6 +126,7 @@ async def on_message(message: discord.Message):
                     await channel.send(embed = embed)
                     await member.ban(reason="Using one/various banned word/s after reaching max warns, max mutes and max kicks")
 
+
 #*React event
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
@@ -153,6 +155,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         if not user.bot:
             await user.remove_roles(discord.Object(id = role))
             print(f"{user} has been cleared of the role {role} from reaction {reaction}")
+ 
  
 #*Member join event  
 @client.event
@@ -208,7 +211,9 @@ async def on_member_join(member: discord.Member):
     for role in role_list:
         await member.add_roles(discord.Object(role))
 
-#*Cogs
+
+#*Command Cogs
+#Welcome
 class Welcomer(commands.Cog):
     def __init__(self, client):
         self.client = client
@@ -326,6 +331,7 @@ class Welcomer(commands.Cog):
             )
             await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Autorole
 async def is_member_punishable(interaction : discord.Interaction, member : discord.Member, mode : str) -> bool:
     
     if str(member.id) == str(interaction.user.id):
@@ -528,6 +534,7 @@ class Autorole(commands.Cog):
             )
             await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Automod
 class Automod(commands.Cog):
     def __init__(self, client):
         self.client = client
@@ -1054,6 +1061,27 @@ class Automod(commands.Cog):
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
 
+#Music
+lastactive = {}
+@tasks.loop(minutes = 1)
+async def inactivity_check():
+    global lastactive
+    for guild in client.guilds:
+        voice = discord.utils.get(client.voice_clients, guild=guild)
+        
+        if voice and voice.is_connected():
+            if not (voice.is_playing() or voice.is_paused()):
+                None
+            elif len([connectedmember for connectedmember in voice.channel.members if not connectedmember.bot]) == 0:
+                None
+            else:
+                lastactive[guild.id] = float(time.time())
+            
+            try:
+                if float(time.time()) - lastactive[guild.id] > 600:
+                    await voice.disconnect()
+            except Exception: ...
+            
 class Music(commands.Cog):
     def __init__(self, client):
         self.client = client
@@ -1069,6 +1097,8 @@ class Music(commands.Cog):
     @app_commands.command(name = "connect", description= "Connect to voice channel")
     async def connect(self, interaction : discord.Interaction) -> None:
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
+        global lastactive
+        lastactive[interaction.guild.id] = float(time.time())
         
         if not interaction.user.voice:
             embed = discord.Embed(
@@ -1083,7 +1113,7 @@ class Music(commands.Cog):
             )
             return await interaction.response.send_message(embed = embed)   
         
-        voice = await interaction.user.voice.channel.connect()
+        await interaction.user.voice.channel.connect()
         embed = discord.Embed(
             description= "✅ Connected to voice channel.",
             color = discord.Color.green()
@@ -1114,7 +1144,6 @@ class Music(commands.Cog):
             )
             return await interaction.response.send_message(embed = embed)
 
-        voice.cleanup()
         await voice.disconnect()
         embed = discord.Embed(
             description= "✅ Disconnected from voice channel.",
@@ -1196,13 +1225,7 @@ class Music(commands.Cog):
     @app_commands.command(name = "play", description= "Play or queue a song into the playlist")
     async def play(self, interaction : discord.Interaction, song : str) -> None:
         
-        if not interaction.guild.me.voice:
-            embed = discord.Embed(
-                description= "❌ I am not connected to a voice channel.",
-                color = discord.Color.red()
-            )
-            return await interaction.response.send_message(embed = embed)
-        elif not interaction.user.voice:
+        if not interaction.user.voice:
             embed = discord.Embed(
                 description= "❌ You are not connected to a voice channel.",
                 color = discord.Color.red()
@@ -1215,6 +1238,8 @@ class Music(commands.Cog):
             )
             return await interaction.response.send_message(embed = embed)
 
+        if not interaction.guild.me.voice:
+            self.connect(interaction = interaction)
         embed = discord.Embed(
             description= f"✅ Added **{KTmusic.get_youtube_search_info(query = song)['title']}** to playlist.",
             color = discord.Color.green()
@@ -1234,7 +1259,6 @@ class Music(commands.Cog):
     async def stop(self, interaction : discord.Interaction) -> None:
         server_id = str(interaction.guild.id)
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-        playlistconfig = await KTtools.load_playlist(server_id)
         
         if not voice or not voice.is_connected():
             embed = discord.Embed(
@@ -1248,7 +1272,7 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        elif not playlistconfig["isplaying"]:
+        elif not voice.is_playing():
             embed = discord.Embed(
                 description= "❌ I am not playing anything.",
                 color = discord.Color.red()
@@ -1279,7 +1303,7 @@ class Music(commands.Cog):
         await interaction.channel.send(embed = embed)
 
     @app_commands.command(name = "pause", description = "Pause/resume the playing")
-    async def pause(interaction : discord.Interaction, *args) -> None:
+    async def pause(self, interaction : discord.Interaction) -> None:
         server_id = str(interaction.guild.id)
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
         playlistconfig = await KTtools.load_playlist(server_id)
@@ -1310,16 +1334,20 @@ class Music(commands.Cog):
                     color = discord.Color.dark_purple()
                 )
                 return await interaction.response.send_message(embed = embed, ephemeral=True) """
-        
-        embed = discord.Embed(
-            description= "✅ Stopped the music",
-            color = discord.Color.green()
-        )
-        await interaction.response.send_message(embed = embed)
-        
+
         if not interaction.guild.voice_client.is_paused():
+            embed = discord.Embed(
+            description= "Paused the playing",
+            color = discord.Color.dark_purple()
+            )
+            await interaction.response.send_message(embed = embed)
             interaction.guild.voice_client.pause()
         else:
+            embed = discord.Embed(
+            description= "Resumed the playing",
+            color = discord.Color.dark_purple()
+            )
+            await interaction.response.send_message(embed = embed)
             interaction.guild.voice_client.resume()
             
     @app_commands.command(name = "repeat", description = "Toggle repeat on/off")
@@ -1537,6 +1565,7 @@ async def on_ready() -> None:
     await client.add_cog(Autorole(client=client))
     await client.add_cog(Automod(client = client))
     await client.add_cog(Music(client = client))
+    await inactivity_check.start()
     print(f"{client.user} working")
 
 

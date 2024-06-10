@@ -37,10 +37,11 @@ Base discord App(Bot) KOLT
                 <ul>
                     <li>For all users:</li>
                         <ul>
-                            <li>Connect / disconnect command (Needed to play music)</li>
+                            <li>Connect / disconnect command</li>
                             <li>move command to move the bot from one channel to another</li>
-                            <li>Play to play/queue a song</li>
+                            <li>Play to play/queue a song, connects the bot if it is not connected</li>
                             <li>Playlist command to show the current playlist (User doesn't need to be connected to use)</li>
+                            <li>Automatic disconnect after an inactivity period</li>
                         </ul>
                     <li>For administrators / DJ role:</li>
                         <ul>

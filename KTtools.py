@@ -209,7 +209,7 @@ async def user_has_permissions(member : discord.Member, permissions : list[str])
     
     return ct == len(permissions)
 
-def create_playlist(server_id : str) -> None:
+async def create_playlist(server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
     
@@ -238,7 +238,11 @@ async def load_playlist(server_id : str) -> dict:
     connexion.close()
     
     playlist_template = ["server_id", "playlist", "isplaying", "repeat", "shuffle"]
-    return {playlist_template[i] : eval_no_error(data[i]) for i in range(len(playlist_template))}
+    to_return = {}
+    for idx in range (len(playlist_template)):
+        to_return[playlist_template[idx]] = eval_no_error(data[idx])
+    
+    return to_return  
 async def save_playlist(data : list, server_id : str) -> None:
     connexion = sqlite3.connect("configs.db")
     cursor = connexion.cursor()
@@ -270,6 +274,4 @@ def dropplaylist()-> None:
     connexion.close()
 
 if __name__ == "__main__":
-    a = [1, 2, 3]
-    a[0] = 5
-    print(a)
+    ...
