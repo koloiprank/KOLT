@@ -112,6 +112,9 @@ async def play_song(interaction : discord.Interaction, song : str) -> None:
         
         playlistconfig["playlist"].pop(0)
         await KTtools.save_playlist({"playlist": "[]", "isplaying": "False"}, server_id)
+        try:
+            interaction.guild.voice_client.stop()
+        except Exception: ...
         
         embed = discord.Embed(
             description= "## Playlist finished!",
