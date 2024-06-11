@@ -60,23 +60,26 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
 async def repeat_check(playlistconfig) -> list[str]:
     playlist = playlistconfig["playlist"]
     repeat = playlistconfig["repeat"]
-    if repeat:
-        playlist.append(playlist[0])
-        playlist.pop(0)
-    elif not repeat:
-        playlist.pop(0)
+    try:
+        if repeat:
+            playlist.append(playlist[0])
+            playlist.pop(0)
+        elif not repeat:
+            playlist.pop(0)
+    except Exception: ...
     
     return playlist
 async def shuffle_check(playlistconfig) -> list[str]:
     playlist = playlistconfig["playlist"]
     shuffle = playlistconfig["shuffle"]
-    
-    if shuffle:
-        nextsongidx = randint(0, len(playlist) - 1)
-        playlist[nextsongidx], playlist[0] = playlist[0], playlist[nextsongidx]
+    try:
+        if shuffle:
+            nextsongidx = randint(0, len(playlist) - 1)
+            playlist[nextsongidx], playlist[0] = playlist[0], playlist[nextsongidx]
 
-    elif not shuffle or len(playlist) == 1:
-        pass
+        elif not shuffle or len(playlist) == 1:
+            pass
+    except Exception: ...
     
     return playlist
 

@@ -25,7 +25,7 @@ from reset_config_playlist import reset_all_playlists
 load_dotenv()
 TOKEN : Final[str] = os.getenv('DISCORD_TOKEN')
 intents = Intents.all()
-client = commands.Bot(command_prefix = "/" ,intents = intents)
+client = commands.Bot(command_prefix = "!" ,intents = intents)
 #tree = app_commands.CommandTree(client)
 
 
@@ -217,14 +217,6 @@ async def on_member_join(member: discord.Member):
 class Welcomer(commands.Cog):
     def __init__(self, client):
         self.client = client
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await self.client.tree.sync()
-        print(f"{client.user} working")
-    @commands.command()
-    async def syncWelcome(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Synced Welcomer with {len(self.client.commands)} commands")
-    
  
     @app_commands.command(name = "setwelcomechannel", description = "Opens a dropdown menu to set your automatic welcome and goodbye channel")
     async def set_welcome_channel(self, interaction : discord.Interaction) -> None:
@@ -330,7 +322,6 @@ class Welcomer(commands.Cog):
                 color = discord.Color.red()
             )
             await interaction.response.send_message(embed = embed, ephemeral=True)
-
 #Autorole
 async def is_member_punishable(interaction : discord.Interaction, member : discord.Member, mode : str) -> bool:
     
@@ -388,13 +379,6 @@ async def is_member_punishable(interaction : discord.Interaction, member : disco
 class Autorole(commands.Cog):
     def __init__(self, client):
         self.client = client
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await self.client.tree.sync()
-        print(f"{client.user} working")
-    @commands.command()
-    async def syncAutorole(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Synced Autorole with {len(self.client.commands)} commands")
         
     @app_commands.command(name = "addautorolechannel", description= "Adds the channel to the autorole list. Allows autorole react to work here.")
     async def addautorolechannel(self, interaction : discord.Interaction) -> None:
@@ -533,18 +517,10 @@ class Autorole(commands.Cog):
                 color = discord.Color.red()
             )
             await interaction.response.send_message(embed = embed, ephemeral=True)
-
 #Automod
 class Automod(commands.Cog):
     def __init__(self, client):
         self.client = client
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await self.client.tree.sync()
-        print(f"{client.user} working")
-    @commands.command()
-    async def syncAutomod(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Synced Automod with {len(self.client.commands)} commands")
         
     #Warns
     @app_commands.command(name = "warn", description= "Warns a user")
@@ -1060,7 +1036,6 @@ class Automod(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-
 #Music
 lastactive = {}
 @tasks.loop(minutes = 1)
@@ -1085,14 +1060,6 @@ async def inactivity_check():
 class Music(commands.Cog):
     def __init__(self, client):
         self.client = client
-    @commands.Cog.listener()
-    async def on_ready(self):
-        await self.client.tree.sync()
-        print(f"{client.user} working")
-    @commands.command()
-    async def syncMusic(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Synced Music with {len(self.client.commands)} commands")
-    
 
     @app_commands.command(name = "connect", description= "Connect to voice channel")
     async def connect(self, interaction : discord.Interaction) -> None:
@@ -1131,7 +1098,7 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        elif not voice or not voice.is_connected():
+        elif not voice:
             embed = discord.Embed(
                 description= "❌ I am not connected to a voice channel.",
                 color = discord.Color.red()
@@ -1162,9 +1129,8 @@ class Music(commands.Cog):
                 return await interaction.response.send_message(embed = embed, ephemeral=True)
         
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
-        if voice and voice.is_connected():
-            await self.stop(interaction)
-            voice.cleanup()
+        if voice:
+            voice.stop()
             await voice.disconnect()
             embed = discord.Embed(
                 description= "✅ Disconnected from voice channel.",
@@ -1224,6 +1190,7 @@ class Music(commands.Cog):
     
     @app_commands.command(name = "play", description= "Play or queue a song into the playlist")
     async def play(self, interaction : discord.Interaction, song : str) -> None:
+        voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
         
         if not interaction.user.voice:
             embed = discord.Embed(
@@ -1231,18 +1198,20 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        elif interaction.user.voice.channel != interaction.guild.me.voice.channel:
-            embed = discord.Embed(
-                description= "❌ You are not in my voice channel.",
-                color = discord.Color.red()
-            )
-            return await interaction.response.send_message(embed = embed)
-
-        if not interaction.guild.me.voice:
-            self.connect(interaction = interaction)
+        
+        if voice:
+            if interaction.user.voice.channel != interaction.guild.me.voice.channel:
+                embed = discord.Embed(
+                    description= "❌ You are not in my voice channel.",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed)
+        elif not voice:
+            await interaction.user.voice.channel.connect()
+       
         embed = discord.Embed(
-            description= f"✅ Added **{KTmusic.get_youtube_search_info(query = song)['title']}** to playlist.",
-            color = discord.Color.green()
+            description= f"Added **{KTmusic.get_youtube_search_info(query = song)['title']}** to playlist.",
+            color = discord.Color.dark_purple()
             )
         await interaction.response.send_message(embed = embed)
         
@@ -1260,7 +1229,7 @@ class Music(commands.Cog):
         server_id = str(interaction.guild.id)
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
         
-        if not voice or not voice.is_connected():
+        if not voice:
             embed = discord.Embed(
                 description= "❌ I am not connected to a voice channel.",
                 color = discord.Color.red()
@@ -1289,18 +1258,12 @@ class Music(commands.Cog):
         
         embed = discord.Embed(
             description= "✅ Stopped the music",
-            color = discord.Color.green()
+            color = discord.Color.dark_purple()
         )
         await interaction.response.send_message(embed = embed)
         
         voice.stop()
         await KTtools.save_playlist({"playlist": "[]", "isplaying": "False"}, server_id)
-        
-        embed = discord.Embed(
-            description= "## Playlist finished!",
-            color = discord.Color.dark_purple()
-            )
-        await interaction.channel.send(embed = embed)
 
     @app_commands.command(name = "pause", description = "Pause/resume the playing")
     async def pause(self, interaction : discord.Interaction) -> None:
@@ -1308,7 +1271,7 @@ class Music(commands.Cog):
         voice = discord.utils.get(client.voice_clients, guild=interaction.guild)
         playlistconfig = await KTtools.load_playlist(server_id)
         
-        if not voice or not voice.is_connected():
+        if not voice:
             embed = discord.Embed(
                 description= "❌ I am not connected to a voice channel.",
                 color = discord.Color.red()
@@ -1467,9 +1430,9 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        elif (len(playlistconfig["playlist"]) == 1) and not playlistconfig["repeat"]:
+        elif (len(playlistconfig["playlist"]) <= 1) and not playlistconfig["repeat"]:
             embed = discord.Embed(
-                description= "❌ Last song in the playlist, use /stop to stop the music",
+                description= "❌ Last song in the playlist, use /stop to stop the music or /play to queue more music",
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
@@ -1484,13 +1447,13 @@ class Music(commands.Cog):
 
         embed = discord.Embed(
             description= "✅ Loading next song...",
-            color = discord.Color.green()
+            color = discord.Color.dark_purple()
         )
         await interaction.response.send_message(embed = embed)
         
         interaction.guild.voice_client.stop()
 
-    @app_commands.command(name = "rmsong", description = "Remove a song from the playlist")
+    @app_commands.command(name = "rmsong", description = "Remove a song from the playlist. Type * to clear playlist")
     async def rmsong(self, interaction : discord.Interaction, song : str) -> None:
         server_id = str(interaction.guild.id)
         playlistconfig = await KTtools.load_playlist(server_id)
@@ -1522,21 +1485,28 @@ class Music(commands.Cog):
                 )
                 return await interaction.response.send_message(embed = embed, ephemeral=True) """
         
-        if KTmusic.get_youtube_search_info(query = song)["title"] not in playlistconfig["playlist"]:
+        if song == "*":
+            playlistconfig["playlist"] = []
             embed = discord.Embed(
-                description = f"❌ **{song}** is not in the playlist",
-                color = discord.Color.red()
-            )
-            return await interaction.response.send_message(embed = embed)
+            description = "Cleared playlist",
+            color = discord.Color.dark_purple()
+        )
+        else:
+            if KTmusic.get_youtube_search_info(query = song)["title"] not in playlistconfig["playlist"]:
+                embed = discord.Embed(
+                    description = f"❌ **{song}** is not in the playlist",
+                    color = discord.Color.red()
+                )
+                return await interaction.response.send_message(embed = embed)
 
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(query = song)["title"]))
-        await KTtools.save_playlist(playlistconfig, server_id)
-        
-        embed = discord.Embed(
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, lambda: playlistconfig["playlist"].remove(KTmusic.get_youtube_search_info(query = song)["title"]))
+            embed = discord.Embed(
             description = f"Removed **{song}** from the playlist",
             color = discord.Color.dark_purple()
         )
+        await KTtools.save_playlist(playlistconfig, server_id)
+        
         await interaction.response.send_message(embed = embed)
 
     @app_commands.command(name = "playlist", description = "Show the current playlist")
@@ -1550,22 +1520,30 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
+        elif not playlistconfig["playlist"]:
+            embed = discord.Embed(
+                description = "❌ Playlist is empty",
+                color = discord.Color.red()
+            )
+            return await interaction.response.send_message(embed = embed)
         
         loop = asyncio.get_event_loop()
         embed = await loop.run_in_executor(None, lambda: KTmusic.create_playlist_embed(playlistconfig = playlistconfig))
         await interaction.response.send_message(embed = embed)
-    
-    
+
+
+
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 @client.event
 async def on_ready() -> None:
-    #await tree.sync()
     await client.add_cog(Welcomer(client=client))
     await client.add_cog(Autorole(client=client))
     await client.add_cog(Automod(client = client))
     await client.add_cog(Music(client = client))
+    await client.tree.sync()
     inactivity_check.start()
+    
     print(f"{client.user} working")
 
 

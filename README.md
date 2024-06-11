@@ -48,7 +48,7 @@ Base discord App(Bot) KOLT
                             <li>Toggleable playlist Repeat / Shuffle</li>
                             <li>Pause command to pause the music</li>
                             <li>stop command to stop the music</li>
-                            <li>rmsong to remove a specific song</li>
+                            <li>rmsong to remove a specific song, replace the song name with a * to clear playlist</li>
                             <li>forcedisconnect to force the bot to disconnect and clear the playlist configuration</li>
                         </ul>
                 </ul>
