@@ -1038,24 +1038,24 @@ class Automod(commands.Cog):
             return await interaction.response.send_message(embed = embed, ephemeral=True)
 #Music
 lastactive = {}
-@tasks.loop(minutes = 1)
+@tasks.loop(seconds = 2)
 async def inactivity_check():
+    print("inactivity_check")
     global lastactive
     for guild in client.guilds:
         voice = discord.utils.get(client.voice_clients, guild=guild)
         
-        if voice and voice.is_connected():
-            if not (voice.is_playing() or voice.is_paused()):
-                None
-            elif len([connectedmember for connectedmember in voice.channel.members if not connectedmember.bot]) == 0:
+        if voice:
+            voice_playing = voice.is_playing() or voice.is_paused()
+            voice_alone = len([connectedmember for connectedmember in voice.channel.members if not connectedmember.bot]) == 0
+            if not voice_playing or voice_alone:
                 None
             else:
                 lastactive[guild.id] = float(time.time())
             
-            try:
-                if float(time.time()) - lastactive[guild.id] > 600:
+            if guild.id in lastactive:
+                if float(time.time()) - lastactive[guild.id] > 10:
                     await voice.disconnect()
-            except Exception: ...
             
 class Music(commands.Cog):
     def __init__(self, client):
@@ -1207,6 +1207,8 @@ class Music(commands.Cog):
                 )
                 return await interaction.response.send_message(embed = embed)
         elif not voice:
+            global lastactive
+            lastactive[interaction.guild.id] = float(time.time())
             await interaction.user.voice.channel.connect()
        
         embed = discord.Embed(
