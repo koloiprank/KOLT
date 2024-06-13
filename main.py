@@ -1038,9 +1038,8 @@ class Automod(commands.Cog):
             return await interaction.response.send_message(embed = embed, ephemeral=True)
 #Music
 lastactive = {}
-@tasks.loop(seconds = 2)
+@tasks.loop(seconds = 45)
 async def inactivity_check():
-    print("inactivity_check")
     global lastactive
     for guild in client.guilds:
         voice = discord.utils.get(client.voice_clients, guild=guild)
@@ -1054,7 +1053,7 @@ async def inactivity_check():
                 lastactive[guild.id] = float(time.time())
             
             if guild.id in lastactive:
-                if float(time.time()) - lastactive[guild.id] > 10:
+                if float(time.time()) - lastactive[guild.id] > 450:
                     await voice.disconnect()
             
 class Music(commands.Cog):
