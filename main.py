@@ -471,10 +471,8 @@ class Autorole(commands.Cog):
         config = await KTtools.load_config(str(interaction.guild.id))
         
         if has_perms:
-            messageID = interaction.channel.last_message_id
-            
             try:
-                message = await interaction.channel.fetch_message(messageID)
+                message = interaction.channel.last_message 
             except Exception:
                 embed = discord.Embed(
                     description= "❌ Message error. Try deleting and sending a new message.",
@@ -484,14 +482,12 @@ class Autorole(commands.Cog):
                 return
 
             if "<@" in str(role) and str(role).strip("<@&>") not in [str(member.id) for member in interaction.guild.members]:
-                
                 if str(interaction.channel_id) in config["autorole_channels"]:
                     try:
                         await message.add_reaction(emoji)
                     except Exception:
-                        
                         embed = discord.Embed(
-                            description= "❌ Invalid emoji!",
+                            description= "❌ Invalid emoji! If you are sure the emoji was correct, try deleting the message and sending a new one.",
                             color=discord.Color.red()
                             )
                         await interaction.response.send_message(embed = embed, ephemeral = True)
@@ -502,7 +498,7 @@ class Autorole(commands.Cog):
                     await interaction.response.send_message("Done!", ephemeral = True)
                 else:
                     embed = discord.Embed(
-                        description= "❌ This channel is not in autorole list.\nUse **/addautorolechannel** to add it, then try again.",
+                        description= "❌ This channel is not in autorole list.\nUse ``` /addautorolechannel ``` to add it, then try again.",
                         color=discord.Color.red()
                         )
                     await interaction.response.send_message(embed = embed, ephemeral = True)
@@ -1532,6 +1528,10 @@ class Music(commands.Cog):
         embed = await loop.run_in_executor(None, lambda: KTmusic.create_playlist_embed(playlistconfig = playlistconfig))
         await interaction.response.send_message(embed = embed)
 
+class Misc(commands.Cog):
+    def __init__(self, client : commands.Bot) -> None:
+        self.client = client
+    
 
 
 #!START
