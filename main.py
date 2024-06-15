@@ -1068,7 +1068,7 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        elif voice and voice.is_connected():
+        elif voice:
             embed = discord.Embed(
                 description= "❌ I am already connected to a voice channel. Use /move to move me to your channel.",
                 color = discord.Color.red()
@@ -1280,7 +1280,7 @@ class Music(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed)
-        elif not playlistconfig["isplaying"]:
+        elif not (voice.is_playing() and playlistconfig["isplaying"]):
             embed = discord.Embed(
                 description= "❌ I am not playing anything.",
                 color = discord.Color.red()
@@ -1526,6 +1526,31 @@ class Music(commands.Cog):
         
         loop = asyncio.get_event_loop()
         embed = await loop.run_in_executor(None, lambda: KTmusic.create_playlist_embed(playlistconfig = playlistconfig))
+        await interaction.response.send_message(embed = embed)
+
+    @app_commands.command(name = "resetmusic", description = "Resets the music bot in case something goes wrong and music cant play")
+    async def resetmusic(self, interaction : discord.Interaction) -> None:
+
+        if not await KTtools.interactionuser_has_permissions(interaction, ["administrator"]) or interaction.guild.owner_id != interaction.user.id:
+            if "dj" not in [role.name.lower() for role in interaction.user.roles]:
+                embed = discord.Embed(
+                    description= "You need to have the 'DJ' role or be an admin to use this command!",
+                    color = discord.Color.dark_purple()
+                )
+                return await interaction.response.send_message(embed = embed, ephemeral=True)
+        
+
+        server_id = str(interaction.guild.id)
+        playlistconfig = await KTtools.load_playlist(server_id)
+        playlistconfig["playlist"] = []
+        playlistconfig["isplaying"] = False
+        playlistconfig["repeat"] = False
+        playlistconfig["shuffle"] = False
+        await KTtools.save_playlist(playlistconfig, server_id)
+        embed = discord.Embed(
+            description = "✅ Music bot has been reset",
+            color = discord.Color.green()
+        )
         await interaction.response.send_message(embed = embed)
 
 class Misc(commands.Cog):

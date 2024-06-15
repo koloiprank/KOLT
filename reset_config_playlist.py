@@ -18,6 +18,6 @@ async def reset_all_playlists():
     template = {"playlist": [], "isplaying": False, "repeat": False, "shuffle": False}
     for server_id in serverlist:
         await KTtools.save_playlist(template, server_id)
-    
+
 if __name__ == "__main__":
     asyncio.run(reset_all_playlists())
