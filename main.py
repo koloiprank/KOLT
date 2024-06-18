@@ -12,6 +12,7 @@ import logging
 import time
 import asyncio
 from unidecode import unidecode
+from pytube import Playlist
 
 #*Custom modules
 import KTwelcome
@@ -1205,21 +1206,102 @@ class Music(commands.Cog):
             global lastactive
             lastactive[interaction.guild.id] = float(time.time())
             await interaction.user.voice.channel.connect()
-       
-        embed = discord.Embed(
-            description= f"Added **{KTmusic.get_youtube_search_info(query = song)['title']}** to playlist.",
-            color = discord.Color.dark_purple()
-            )
-        await interaction.response.send_message(embed = embed)
         
         playlistconfig = await KTtools.load_playlist(server_id = str(interaction.guild.id))
-        playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(song)['title'])
-        await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+        if "https://" in song:
+            if ("youtube.com" in song or "youtu.be" in song) and "playlist" in song:
+                playlist_urls = Playlist(song).video_urls
+                playlist_title = Playlist(song).title
+                print(playlist_urls, "\n", playlist_title)
+                
+                if playlist_urls:
+                    for url in playlist_urls:
+                        playlistconfig["playlist"].append(url)
+                else:
+                    embed = discord.Embed(
+                        description = "❌ I couldn't find any songs in the playlist. Maybe the playlist is private, or wrong link?",
+                        color = discord.Color.dark_purple()
+                    )
+                    embed.set_footer(text = "Tip: Link should look like https://youtube.com/playlist?list=SOMETHING...")
+                    return await interaction.response.send_message(embed = embed)
+                await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                
+                embed = discord.Embed(
+                    description = "Added **" + playlist_title + "** to playlist.",
+                    color = discord.Color.dark_purple()
+                )
+                await interaction.response.send_message(embed = embed)
+                
+                if not playlistconfig["isplaying"]:
+                    playlistconfig["isplaying"] = True
+                    await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                    await KTmusic.play_song(interaction = interaction, song = song)
+            
+            elif "open.spotify.com" in song:
+                if "track" in song:
+                    loop = asyncio.get_event_loop()
+                    song = await loop.run_in_executor(None, lambda: KTmusic.get_spotify_info(query = song))
+                    
+                    playlistconfig["playlist"].append(song)
+                    await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                    
+                    embed = discord.Embed(
+                        description = "Added **" + song + "** to playlist.",
+                        color = discord.Color.dark_purple()
+                    )
+                    await interaction.response.send_message(embed = embed)
+                    if not playlistconfig["isplaying"]:
+                        playlistconfig["isplaying"] = True
+                        await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                        await KTmusic.play_song(interaction = interaction, song = song)
+            
+                elif "playlist" in song:
+                    loop = asyncio.get_event_loop()
+                    playlist_name = await loop.run_in_executor(None, lambda: KTmusic.get_spotify_info(query = song)[0])
+                    playlist_songs = await loop.run_in_executor(None, lambda: KTmusic.get_spotify_info(query = song)[1])
+
+                    embed = discord.Embed(
+                        description = "Added **" + playlist_name + "** to playlist.",
+                        color = discord.Color.dark_purple()
+                    )
+                    await interaction.response.send_message(embed = embed)
+                    
+                    for track in playlist_songs:
+                        playlistconfig["playlist"].append(track)
+                    await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                    if not playlistconfig["isplaying"]:
+                        playlistconfig["isplaying"] = True
+                        await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                        await KTmusic.play_song(interaction = interaction, song = playlistconfig["playlist"][0])
+            
+            else:
+                playlistconfig["playlist"].append(song)
+                await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                
+                embed = discord.Embed(
+                    description = "Added **" + KTmusic.get_youtube_search_info(song)['title'] + "** to playlist.",
+                    color = discord.Color.dark_purple()
+                )
+                await interaction.response.send_message(embed = embed)
+                if not playlistconfig["isplaying"]:
+                    playlistconfig["isplaying"] = True
+                    await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                    await KTmusic.play_song(interaction = interaction, song = song)
         
-        if not playlistconfig["isplaying"]:
-            playlistconfig["isplaying"] = True
+        else:
+            embed = discord.Embed(
+                description= f"Added **{KTmusic.get_youtube_search_info(query = song)['title']}** to playlist.",
+                color = discord.Color.dark_purple()
+                )
+            await interaction.response.send_message(embed = embed)
+            
+            playlistconfig["playlist"].append(KTmusic.get_youtube_search_info(song)['title'])
             await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
-            await KTmusic.play_song(interaction = interaction, song = song)
+            
+            if not playlistconfig["isplaying"]:
+                playlistconfig["isplaying"] = True
+                await KTtools.save_playlist(playlistconfig, server_id = str(interaction.guild.id))
+                await KTmusic.play_song(interaction = interaction, song = song)
     
     @app_commands.command(name = "stop", description = "Stop playing music and clear playlist")
     async def stop(self, interaction : discord.Interaction) -> None:

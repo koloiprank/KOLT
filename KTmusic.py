@@ -1,11 +1,39 @@
 from yt_dlp import YoutubeDL
 from youtube_search import YoutubeSearch
+
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+
 import discord
 from random import randint
 import asyncio
 import KTtools
+import os
+from dotenv import load_dotenv
+
+#SPOTIFY
+load_dotenv()
+CLIENT_ID = os.getenv("SP_CLIENT_ID")
+CLIENT_SECRET = os.getenv("SP_CLIENT_SECRET")
+CLIENT_CREDENTIALS_MANAGER = SpotifyClientCredentials(
+    client_id=CLIENT_ID, client_secret=CLIENT_SECRET
+)
+SP = spotipy.Spotify(client_credentials_manager=CLIENT_CREDENTIALS_MANAGER)
+
+def get_spotify_uri(link : str) -> str:
+    return link.split("/")[-1].split("?")[0]
+
+def get_spotify_info(query : str) -> str | list[str | list[str]]:
+    if "track" in query:
+        uri = get_spotify_uri(query)
+        return f"{SP.track(uri)['name']} {SP.track(uri)['artists'][0]['name']}"
+    elif "playlist" in query:
+        uri = get_spotify_uri(query)
+        return [SP.playlist(uri)['name'] ,[f"{song['track']['name']} {song['track']['artists'][0]['name']}" for song in SP.playlist_tracks(uri)["items"]]]
+        
 
 
+#YOUTUBE
 async def searchyt(query : str, loop = None, stream = False) -> dict[str : str]:
     ydloptions = {
     'format': 'bestaudio/',
@@ -23,7 +51,10 @@ async def searchyt(query : str, loop = None, stream = False) -> dict[str : str]:
     with YoutubeDL(ydloptions) as ydl:
         loop = loop or asyncio.get_event_loop()
         try:
-            info = await loop.run_in_executor(None, lambda: ydl.extract_info("ytsearch:%s" % query, download=False))
+            if "https://" not in query:
+                info = await loop.run_in_executor(None, lambda: ydl.extract_info("ytsearch:%s" % query, download=False))
+            else:
+                info = await loop.run_in_executor(None, lambda: ydl.extract_info(query, download=False))
             if 'entries' in info:
                 info = info["entries"][0]
             filename = info['title'] if stream else ydl.prepare_filename(info)
@@ -39,7 +70,10 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
     for idx in range(1, 12):
         if idx != 11:
             try:
-                upnext_playlist += f"- **{idx}.** {playlistconfig['playlist'][idx]}\n" if not playlistconfig["shuffle"] else f"- {playlistconfig['playlist'][idx]}\n"
+                if "https://" not in playlistconfig["playlist"][idx]:
+                    upnext_playlist += f"- **{idx}.** {playlistconfig['playlist'][idx]}\n" if not playlistconfig["shuffle"] else f"- {playlistconfig['playlist'][idx]}\n"
+                else:
+                    upnext_playlist += f"- **{idx}.** {get_youtube_search_info(playlistconfig['playlist'][idx])['title']}\n" if not playlistconfig["shuffle"] else f"- {playlistconfig['playlist'][idx]}\n"
             except Exception:
                 break
         elif idx == 11:
@@ -170,5 +204,7 @@ async def play_next(interaction : discord.Interaction) -> None:
             )
         await interaction.channel.send(embed = embed)
 
-    
-    
+
+if __name__ == "__main__":
+    print(get_spotify_info("https://open.spotify.com/playlist/0jruQFKncWsggZO1r5ENlM?si=92354aaf674343f8"))
+    print(get_spotify_info("https://open.spotify.com/intl-es/track/2esBhFKBZzieDAusVYZj8Y?si=2ba37ef61b4d4d2b"))
