@@ -35,6 +35,7 @@ Base discord App(Bot) KOLT
         <ul>
             <li>Music playing</li>
                 <ul>
+                    <li>NOTE: YT and SPOTIFY single track / playlist support</li>
                     <li>For all users:</li>
                         <ul>
                             <li>Connect / disconnect command</li>
