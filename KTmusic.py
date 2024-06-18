@@ -81,7 +81,7 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
     
     embed = discord.Embed(
         title = "**CURRENTLY PLAYING**",
-        description = f"### **Now playing:**\n{playlistconfig['playlist'][0]}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
+        description = f"### **Now playing:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['title']}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
         color = discord.Color.dark_purple(),
         url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
     )
