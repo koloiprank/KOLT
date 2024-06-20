@@ -53,6 +53,10 @@ Base discord App(Bot) KOLT
                             <li>forcedisconnect to force the bot to disconnect and clear the playlist configuration</li>
                         </ul>
                 </ul>
+            <li>Image scrapping</li>
+                <ul>
+                    <li>cat command to send a random cat image! >:3
+                </ul>
         </ul>
 </ul>
 
