@@ -13,6 +13,7 @@ import time
 import asyncio
 from unidecode import unidecode
 from pytube import Playlist
+from random import choice
 
 #*Custom modules
 import KTwelcome
@@ -20,6 +21,7 @@ import KTtools
 import KTautorole
 import KTmoderation
 import KTmusic
+import KTmisc
 from reset_config_playlist import reset_all_playlists
 
 #!TOKEN
@@ -1565,7 +1567,7 @@ class Music(commands.Cog):
                 return await interaction.response.send_message(embed = embed, ephemeral=True) """
         if song is None:
             embed = discord.Embed(
-                description = f"Removed {playlistconfig["playlist"][0]} from playlist",
+                description = f"Removed {playlistconfig['playlist'][0]} from playlist",
                 color = discord.Color.dark_purple()
             )
             await interaction.response.send_message(embed = embed)
@@ -1646,7 +1648,30 @@ class Misc(commands.Cog):
     def __init__(self, client : commands.Bot) -> None:
         self.client = client
     
-
+    @app_commands.command(name = "cat", description = "Sends a random cat image :3")
+    async def cat(self, interaction : discord.Interaction) -> None:
+        embed = discord.Embed(
+            description = "Loading the perfect cat image...",
+            color = discord.Color.dark_purple()
+        )
+        await interaction.response.send_message(embed = embed)
+        
+        loop = asyncio.get_event_loop()
+        cat_img = await loop.run_in_executor(None, lambda: KTmisc.scrape_image_from_subreddit(subr = choice(["cats", "cat", "catpictures"])))
+        
+        if cat_img is not None:
+            embed = discord.Embed(
+                description = "Here's your cat image!!! >:3",
+                color = discord.Color.dark_purple()
+            )
+            embed.set_image(url = cat_img)
+        else:
+            embed = discord.Embed(
+                description = "Sorry, I couldn't find any cat images :(",
+                color = discord.Color.dark_purple()
+            )
+        
+        await interaction.channel.send(embed = embed)
 
 #!START
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
@@ -1656,6 +1681,7 @@ async def on_ready() -> None:
     await client.add_cog(Autorole(client=client))
     await client.add_cog(Automod(client = client))
     await client.add_cog(Music(client = client))
+    await client.add_cog(Misc(client = client))
     await client.tree.sync()
     inactivity_check.start()
     
