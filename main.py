@@ -1532,8 +1532,8 @@ class Music(commands.Cog):
         
         interaction.guild.voice_client.stop()
 
-    @app_commands.command(name = "rmsong", description = "Remove a song from the playlist. Type * to clear playlist")
-    async def rmsong(self, interaction : discord.Interaction, song : str) -> None:
+    @app_commands.command(name = "rmsong", description = "Remove current song or specified song from the playlist. Type * to clear playlist")
+    async def rmsong(self, interaction : discord.Interaction, song : str = None) -> None:
         server_id = str(interaction.guild.id)
         playlistconfig = await KTtools.load_playlist(server_id)
         
@@ -1563,8 +1563,15 @@ class Music(commands.Cog):
                     color = discord.Color.dark_purple()
                 )
                 return await interaction.response.send_message(embed = embed, ephemeral=True) """
+        if song is None:
+            embed = discord.Embed(
+                description = f"Removed {playlistconfig["playlist"][0]} from playlist",
+                color = discord.Color.dark_purple()
+            )
+            await interaction.response.send_message(embed = embed)
+            playlistconfig["playlist"].pop(0)
         
-        if song == "*":
+        elif song == "*":
             playlistconfig["playlist"] = []
             embed = discord.Embed(
             description = "Cleared playlist",

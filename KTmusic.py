@@ -79,13 +79,27 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
         elif idx == 11:
             upnext_playlist += "And more..."
     
-    embed = discord.Embed(
-        title = "**CURRENTLY PLAYING**",
-        description = f"### **Now playing:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['title']}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
-        color = discord.Color.dark_purple(),
-        url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
-    )
+    try:
+        embed = discord.Embed(
+            title = "**CURRENTLY PLAYING**",
+            description = f"### **Now playing:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['title']}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
+            color = discord.Color.dark_purple(),
+            url = f"https://youtube.com{get_youtube_search_info(playlistconfig['playlist'][0])['url_suffix']}"
+        )
+    except Exception:
+        embed = discord.Embed(
+            title = "**CURRENTLY PLAYING**",
+            description = f"### **Now playing:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['title']}\n### **By:**\n{get_youtube_search_info(playlistconfig['playlist'][0])['channel']}\n\n### **Up next:**\n{upnext_playlist}",
+            color = discord.Color.dark_purple(), 
+        )
+    finally:
+        embed = discord.Embed(
+            title = "**CURRENTLY PLAYING**",
+            description = f"### **Now playing:**\n{playlistconfig['playlist']}\n\n### **Up next:**\n{upnext_playlist}",
+            color = discord.Color.dark_purple(),
+        )
     embed.set_footer(text = f"Repeat: {'on' if playlistconfig['repeat'] else 'off'}\nShuffle: {'on' if playlistconfig['shuffle'] else 'off'}")
+    
     try:
         embed.set_thumbnail(url = get_youtube_search_info(playlistconfig["playlist"][0])["thumbnails"][0])
     except Exception: ...
