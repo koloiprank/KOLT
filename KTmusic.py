@@ -95,7 +95,7 @@ def create_playlist_embed(playlistconfig : dict) -> discord.Embed:
     finally:
         embed = discord.Embed(
             title = "**CURRENTLY PLAYING**",
-            description = f"### **Now playing:**\n{playlistconfig['playlist']}\n\n### **Up next:**\n{upnext_playlist}",
+            description = f"### **Now playing:**\n{playlistconfig['playlist'][0]}\n\n### **Up next:**\n{upnext_playlist}",
             color = discord.Color.dark_purple(),
         )
     embed.set_footer(text = f"Repeat: {'on' if playlistconfig['repeat'] else 'off'}\nShuffle: {'on' if playlistconfig['shuffle'] else 'off'}")

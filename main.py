@@ -1035,26 +1035,7 @@ class Automod(commands.Cog):
                 color = discord.Color.red()
             )
             return await interaction.response.send_message(embed = embed, ephemeral=True)
-#Music
-lastactive = {}
-@tasks.loop(seconds = 45)
-async def inactivity_check():
-    global lastactive
-    for guild in client.guilds:
-        voice = discord.utils.get(client.voice_clients, guild=guild)
-        
-        if voice:
-            voice_playing = voice.is_playing() or voice.is_paused()
-            voice_alone = len([connectedmember for connectedmember in voice.channel.members if not connectedmember.bot]) == 0
-            if not voice_playing or voice_alone:
-                None
-            else:
-                lastactive[guild.id] = float(time.time())
-            
-            if guild.id in lastactive:
-                if float(time.time()) - lastactive[guild.id] > 450:
-                    await voice.disconnect()
-            
+#Music  
 class Music(commands.Cog):
     def __init__(self, client):
         self.client = client
@@ -1651,29 +1632,53 @@ class Misc(commands.Cog):
     @app_commands.command(name = "cat", description = "Sends a random cat image :3")
     async def cat(self, interaction : discord.Interaction) -> None:
         embed = discord.Embed(
-            description = "Loading the perfect cat image...",
+            description = "Here!! Have your cute kitty kitty image >:3",
             color = discord.Color.dark_purple()
         )
+        embed.set_image(url = choice(animal_imgs["cat"]))
         await interaction.response.send_message(embed = embed)
-        
-        loop = asyncio.get_event_loop()
-        cat_img = await loop.run_in_executor(None, lambda: KTmisc.scrape_image_from_subreddit(subr = choice(["cats", "cat", "catpictures"])))
-        
-        if cat_img is not None:
-            embed = discord.Embed(
-                description = "Here's your cat image!!! >:3",
-                color = discord.Color.dark_purple()
-            )
-            embed.set_image(url = cat_img)
-        else:
-            embed = discord.Embed(
-                description = "Sorry, I couldn't find any cat images :(",
-                color = discord.Color.dark_purple()
-            )
-        
-        await interaction.channel.send(embed = embed)
 
 #!START
+lastactive = {}
+async def inactive_check_kick():
+    global lastactive
+    for guild in client.guilds:
+        voice = discord.utils.get(client.voice_clients, guild=guild)
+        
+        if voice:
+            voice_playing = voice.is_playing() or voice.is_paused()
+            voice_alone = len([connectedmember for connectedmember in voice.channel.members if not connectedmember.bot]) == 0
+            if not voice_playing or voice_alone:
+                None
+            else:
+                lastactive[guild.id] = float(time.time())
+            
+            if guild.id in lastactive:
+                if float(time.time()) - lastactive[guild.id] > 450:
+                    await voice.disconnect()
+animal_imgs = {"cat" : []}
+animal_subreddits = {"cat": ["cats", "cat", "catpictures"]}
+async def add_new_img(animal : str, subreddits : list[str]) -> str:
+    global animal_imgs
+    
+    if animal not in animal_imgs:
+        animal_imgs[animal] = []
+    
+    loop = asyncio.get_event_loop()
+    img = await loop.run_in_executor(None, lambda: KTmisc.scrape_image_from_subreddit(subr = choice(subreddits)))
+    animal_imgs[animal].append(img) if img is not None else None
+
+@tasks.loop(seconds = 45)
+async def inactivity_check():
+    await inactive_check_kick()
+    await add_new_img(animal = "cat", subreddits = animal_subreddits["cat"])
+    
+async def bootstart_images():
+    for animal in animal_imgs:
+        img_count = 0
+        while img_count < 5:
+            img = await add_new_img(animal = animal, subreddits = animal_subreddits[animal])
+            img_count += 1 if img is not None else 0
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 @client.event
 async def on_ready() -> None:
@@ -1683,6 +1688,7 @@ async def on_ready() -> None:
     await client.add_cog(Music(client = client))
     await client.add_cog(Misc(client = client))
     await client.tree.sync()
+    await bootstart_images()
     inactivity_check.start()
     
     print(f"{client.user} working")
