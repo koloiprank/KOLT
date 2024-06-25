@@ -1656,29 +1656,31 @@ async def inactive_check_kick():
             if guild.id in lastactive:
                 if float(time.time()) - lastactive[guild.id] > 450:
                     await voice.disconnect()
-animal_imgs = {"cat" : []}
-animal_subreddits = {"cat": ["cats", "cat", "catpictures"]}
-async def add_new_img(animal : str, subreddits : list[str]) -> str:
+    return None
+
+animal_imgs = {}
+animal_subreddits = {"cat": ["cats", "cat", "catpictures"], "wolf": ["WolvesAreBigYo"]}
+async def add_new_img(animal : str, subreddits : list[str]) -> None:
     global animal_imgs
     
     if animal not in animal_imgs:
         animal_imgs[animal] = []
     
-    loop = asyncio.get_event_loop()
-    img = await loop.run_in_executor(None, lambda: KTmisc.scrape_image_from_subreddit(subr = choice(subreddits)))
-    animal_imgs[animal].append(img) if img is not None else None
+    img = await KTmisc.scrape_image_from_subreddit(subr = choice(subreddits))
+    
+    if len(animal_imgs[animal]) == 50:
+        animal_imgs[animal].pop(0)
+    
+    animal_imgs[animal].append(img) if img not in animal_imgs[animal] and img is not None else ...
+    return None
 
-@tasks.loop(seconds = 45)
-async def inactivity_check():
+@tasks.loop(seconds = 10)
+async def loop_check():
     await inactive_check_kick()
     await add_new_img(animal = "cat", subreddits = animal_subreddits["cat"])
+    await add_new_img(animal = "wolf", subreddits = animal_subreddits["wolf"])
+    print(animal_imgs)
     
-async def bootstart_images():
-    for animal in animal_imgs:
-        img_count = 0
-        while img_count < 5:
-            img = await add_new_img(animal = animal, subreddits = animal_subreddits[animal])
-            img_count += 1 if img is not None else 0
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 @client.event
 async def on_ready() -> None:
@@ -1688,8 +1690,7 @@ async def on_ready() -> None:
     await client.add_cog(Music(client = client))
     await client.add_cog(Misc(client = client))
     await client.tree.sync()
-    await bootstart_images()
-    inactivity_check.start()
+    loop_check.start()
     
     print(f"{client.user} working")
 

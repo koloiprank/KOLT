@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-import praw
+import asyncpraw
 import random
 import os
 from dotenv import load_dotenv
@@ -12,7 +12,7 @@ PASSW = os.getenv("RD_PASS")
 SECRET = os.getenv("RD_SECRET")
 CLIENT = os.getenv("RD_CLIENT")
 AGENT = os.getenv("RD_AGENT")
-reddit = praw.Reddit(
+reddit = asyncpraw.Reddit(
     client_id=CLIENT,
     client_secret=SECRET,
     password=PASSW,
@@ -20,9 +20,9 @@ reddit = praw.Reddit(
     username=USERNAME,
 )
 
-def scrape_image_from_subreddit(subr : str) -> str:
-    sub = reddit.subreddit(subr)
-    posts = list(sub.hot(limit=40))
+async def scrape_image_from_subreddit(subr : str) -> str:
+    sub = await reddit.subreddit(subr)
+    posts = [await submission async for submission in sub.hot(limit=40)]
     random_post_idx = random.randint(0, 40)
 
     #IMG SCRAPE
@@ -35,6 +35,6 @@ def scrape_image_from_subreddit(subr : str) -> str:
     
     if img:
         return img[0]
-
+    return None
 
             
