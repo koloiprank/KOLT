@@ -1638,6 +1638,15 @@ class Misc(commands.Cog):
         embed.set_image(url = choice(animal_imgs["cat"]))
         await interaction.response.send_message(embed = embed)
 
+    @app_commands.command(name = "wolf", description = "Sends a random wolf image >:3")
+    async def wolf(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed(
+            description = "Here!! Have your wolf image >:3",
+            color = discord.Color.dark_purple()
+        )
+        embed.set_image(url=choice(animal_imgs["wolf"]))
+        await interaction.response.send_message(embed = embed)
+
 #!START
 lastactive = {}
 async def inactive_check_kick():
@@ -1674,7 +1683,7 @@ async def add_new_img(animal : str, subreddits : list[str]) -> None:
     animal_imgs[animal].append(img) if img not in animal_imgs[animal] and img is not None else ...
     return None
 
-@tasks.loop(seconds = 10)
+@tasks.loop(seconds = 20)
 async def loop_check():
     await inactive_check_kick()
     await add_new_img(animal = "cat", subreddits = animal_subreddits["cat"])
