@@ -55,7 +55,14 @@ Base discord App(Bot) KOLT
                 </ul>
             <li>Image scrapping</li>
                 <ul>
-                    <li>cat command to send a random cat image! >:3
+                    <li>cat command to send a random cat image! >:3</li>
+                    <li>wolf command to send a random wolf image too!!</li>
+                    <li>And more animal commands, list here is (to be updated:)</li>
+                    <ul>
+                        <li>Cats</li>
+                        <li>Wolves</li>
+                    </ul>
+
                 </ul>
         </ul>
 </ul>
