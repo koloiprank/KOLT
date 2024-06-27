@@ -1629,6 +1629,11 @@ class Misc(commands.Cog):
     def __init__(self, client : commands.Bot) -> None:
         self.client = client
     
+    #TODO COMPLETE help CMD
+    @app_commands.command(name = "help", description = "Show all the commands and uses")
+    async def help(self, interaction : discord.Interaction) -> None:
+        raise NotImplementedError
+    
     @app_commands.command(name = "cat", description = "Sends a random cat image :3")
     async def cat(self, interaction : discord.Interaction) -> None:
         embed = discord.Embed(
@@ -1645,6 +1650,15 @@ class Misc(commands.Cog):
             color = discord.Color.dark_purple()
         )
         embed.set_image(url=choice(animal_imgs["wolf"]))
+        await interaction.response.send_message(embed = embed)
+        
+    @app_commands.command(name="fox", description="Sends a random wolf image")
+    async def fox(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed(
+            description= "Here!! Have your fox image!!!",
+            color = discord.Color.dark_purple()
+        )
+        embed.set_image(url=choice(animal_imgs["fox"]))
         await interaction.response.send_message(embed = embed)
 
 #!START
@@ -1668,7 +1682,7 @@ async def inactive_check_kick():
     return None
 
 animal_imgs = {}
-animal_subreddits = {"cat": ["cats", "cat", "catpictures"], "wolf": ["WolvesAreBigYo"]}
+animal_subreddits = {"cat": ["cats", "cat", "catpictures"], "wolf": ["WolvesAreBigYo"], "fox": ["foxes"]}
 async def add_new_img(animal : str, subreddits : list[str]) -> None:
     global animal_imgs
     
