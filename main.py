@@ -1631,8 +1631,8 @@ class Misc(commands.Cog):
     
     #TODO COMPLETE help CMD
     @app_commands.command(name = "help", description = "Show all the commands and uses")
-    async def help(self, interaction : discord.Interaction) -> None:
-        raise NotImplementedError
+    async def helpcomm(self, interaction: discord.Interaction)-> None:
+        await KTmisc.paginate_help(interaction)
     
     @app_commands.command(name = "cat", description = "Sends a random cat image :3")
     async def cat(self, interaction : discord.Interaction) -> None:
@@ -1660,6 +1660,7 @@ class Misc(commands.Cog):
         )
         embed.set_image(url=choice(animal_imgs["fox"]))
         await interaction.response.send_message(embed = embed)
+
 
 #!START
 lastactive = {}
