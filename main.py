@@ -1628,11 +1628,16 @@ class Music(commands.Cog):
 class Misc(commands.Cog):
     def __init__(self, client : commands.Bot) -> None:
         self.client = client
-    
-    #TODO COMPLETE help CMD
+    #TODO Create help modules AND finish and format pagination
     @app_commands.command(name = "help", description = "Show all the commands and uses")
     async def helpcomm(self, interaction: discord.Interaction)-> None:
-        await KTmisc.paginate_help(interaction)
+        WELCOMERHELP = ["TODO"]
+        AUTOROLEHELP = ["TODO"]
+        AUTOMODHELP = ["TODO"]
+        MUSICHELP = ["TODO"]
+        MISCHELP = ["TODO"]
+        DATA = WELCOMERHELP + AUTOROLEHELP + AUTOMODHELP + MUSICHELP + MISCHELP
+        await KTmisc.paginate(interaction, DATA)
     
     @app_commands.command(name = "cat", description = "Sends a random cat image :3")
     async def cat(self, interaction : discord.Interaction) -> None:
@@ -1703,6 +1708,7 @@ async def loop_check():
     await inactive_check_kick()
     await add_new_img(animal = "cat", subreddits = animal_subreddits["cat"])
     await add_new_img(animal = "wolf", subreddits = animal_subreddits["wolf"])
+    await add_new_img(animal = "fox", subreddits = animal_subreddits["fox"])
     print(animal_imgs)
     
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')

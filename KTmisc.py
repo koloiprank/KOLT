@@ -43,43 +43,44 @@ async def scrape_image_from_subreddit(subr : str) -> str:
 
 
 #HELP
-#TODO: FIX AND COMPLETE HELP COMMAND
 class PaginationView(discord.ui.View):
     current_page = 1
     sep = 5
    
     async def send(self, interaction):
+        try:
+            await interaction.response.send("Here is your help!:")
+        except Exception: ...
         self.message = await interaction.channel.send(view = self)
+        await self.update_message(self.data[:self.sep])
     
     def create_embed(self, data):
         embed = discord.Embed(title = "Help", color = discord.Color.dark_purple())
         for item in data:
-            embed.add_field(name = item, value = item, inline = False)
+            embed.add_field(name = "", value = f"`{item}`", inline = False)
         return embed
     
     async def update_message(self, data):
-        self.message.edit(self.create_embed(data), view = self)
+        await self.message.edit(embed = self.create_embed(data), view = self)
     
     
-    @discord.ui.button(label = ">", style = discord.ButtonStyle.primary)
-    async def next_butt(self, interaction : discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        self.current_page += 1
-        until_item = self.current_page * self.sep
-        from_item = until_item - self.sep
-        await self.update_message(self.data[from_item:until_item])
-        
     @discord.ui.button(label = "<", style = discord.ButtonStyle.primary)
-    async def prev_butt(self, interaction : discord.Interaction, button: discord.ui.Button):
+    async def next_butt(self, interaction : discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         self.current_page -= 1
         until_item = self.current_page * self.sep
         from_item = until_item - self.sep
         await self.update_message(self.data[from_item:until_item])
         
-    
-async def paginate_help(interaction: discord.Interaction):
-    data = range(1, 10)
+    @discord.ui.button(label = ">", style = discord.ButtonStyle.primary)
+    async def prev_butt(self, interaction : discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        self.current_page += 1
+        until_item = self.current_page * self.sep
+        from_item = until_item - self.sep
+        await self.update_message(self.data[from_item:until_item])
+           
+async def paginate(interaction: discord.Interaction, data):
     pagination_view = PaginationView()
     pagination_view.data = data
     await pagination_view.send(interaction=interaction)
